@@ -70,7 +70,9 @@ Continued (the second worker of the round):
   criterion points and no evidence rows has the given points recorded as its rows (`local_grader_id` `given_points`,
   `grader_tier` 0, a tier no grader writes), so replay, which reads `grading_evidence`, applies what live applied;
   the tests' due item seeds through the seed door. No tag: every grader door already wrote its rows, and replay of
-  stored rows is unchanged.
+  stored rows is unchanged. The rows' ids are derived from the attempt and criterion. Journeys whose answers gave points
+  without rows now take production's evidence path: the diagnosis-journey golden is regenerated and the VOI restore
+  golden's integration half re-pinned (owner/orchestrator option i; ledger FR3-23).
 
 Third worker: FR3-23 by decision (b) (above); FR3-4 under mvp-0.76 and FR3-17 without a tag
 ([algorithm-mvp-0.76.md](algorithm-mvp-0.76.md)).

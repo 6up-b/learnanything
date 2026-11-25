@@ -1293,7 +1293,7 @@
 "evidence": "Points given with the grade; no grader wrote evidence.",
 "grader_tier": 0,
 "grading_revision": 0,
-"id": "<id:22>",
+"id": "<id:1>:correctness:given_points",
 "learner_confidence": null,
 "local_grader_id": "given_points",
 "notes": null,
@@ -1335,7 +1335,7 @@
 "administration_id": "<id:5>",
 "algorithm_version": "mvp-0.6",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:23>",
+"id": "<id:22>",
 "kind": "administration_opened",
 "observation_id": null,
 "payload_json": null
@@ -1344,7 +1344,7 @@
 "administration_id": "<id:5>",
 "algorithm_version": "mvp-0.6",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:24>",
+"id": "<id:23>",
 "kind": "response_appended",
 "observation_id": "<id:11>",
 "payload_json": null
@@ -1353,7 +1353,7 @@
 "administration_id": "<id:5>",
 "algorithm_version": "grade_interpretation_v1",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:25>",
+"id": "<id:24>",
 "kind": "raw_grade_appended",
 "observation_id": "<id:11>",
 "payload_json": {
@@ -1365,7 +1365,7 @@
 "administration_id": "<id:5>",
 "algorithm_version": "grade_classifier_response_v1",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:26>",
+"id": "<id:25>",
 "kind": "grade_classified",
 "observation_id": "<id:11>",
 "payload_json": {
@@ -1377,7 +1377,7 @@
 "administration_id": "<id:5>",
 "algorithm_version": "grade_interpretation_v1",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:27>",
+"id": "<id:26>",
 "kind": "grade_interpreted",
 "observation_id": "<id:11>",
 "payload_json": {
@@ -1484,7 +1484,7 @@
 "changed": [
 {
 "after": {
-"active_state_segment_id": "<id:28>",
+"active_state_segment_id": "<id:27>",
 "algorithm_version": "mvp-0.21",
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
@@ -1494,7 +1494,7 @@
 "completion_reason": null,
 "created_at": "2026-05-19T12:00:00Z",
 "entered_at": "2026-05-19T12:00:00Z",
-"hypothesis_set_id": "<id:29>",
+"hypothesis_set_id": "<id:28>",
 "id": "<id:15>",
 "learning_object_id": "lo_svd_definition",
 "maximum_observations": 4,
@@ -1512,7 +1512,7 @@
 "updated_at": "2026-05-19T12:00:00Z"
 },
 "before": {
-"active_state_segment_id": "<id:30>",
+"active_state_segment_id": "<id:29>",
 "algorithm_version": "mvp-0.21",
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
@@ -1522,7 +1522,7 @@
 "completion_reason": null,
 "created_at": "2026-05-19T12:00:00Z",
 "entered_at": "2026-05-19T12:00:00Z",
-"hypothesis_set_id": "<id:29>",
+"hypothesis_set_id": "<id:28>",
 "id": "<id:15>",
 "learning_object_id": "lo_svd_definition",
 "maximum_observations": 4,
@@ -1549,7 +1549,7 @@
 "evidence_source": "real_learner",
 "generator_version": null,
 "grader_version": "diagnostic_microprobe_v1",
-"id": "<id:31>",
+"id": "<id:30>",
 "parameter_posterior_json": {
 "outcome_counts": {
 "other_or_unknown": {
@@ -1576,7 +1576,7 @@
 "effective_sample_size": 1.0,
 "evidence_source": "real_learner",
 "grader_version": "diagnostic_microprobe_v1",
-"id": "<id:32>",
+"id": "<id:31>",
 "parameter_posterior_json": {
 "outcome_counts": {
 "other_or_unknown": {
@@ -1612,7 +1612,7 @@
 "robust": {
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
-"decision_context_hash": "<id:33>",
+"decision_context_hash": "<id:32>",
 "ensemble_seed": 9635687209424450469,
 "mapping_version": "probe_coarse_v1",
 "observed_emission": "other|high",
@@ -1630,7 +1630,7 @@
 "grading_source": "ai",
 "observed_outcome": "other_systematic_error"
 },
-"id": "<id:34>",
+"id": "<id:33>",
 "independent_evidence_discount": 1.0,
 "posterior_after_json": {
 "other_or_unknown": 0.20488252573146756,
@@ -1755,7 +1755,7 @@
 "channel_pin": {
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
-"decision_context_hash": "<id:33>",
+"decision_context_hash": "<id:32>",
 "ensemble_seed": 9635687209424450469,
 "mapping_version": "probe_coarse_v1",
 "projection_algorithm_version": "mvp-0.21",
@@ -1771,7 +1771,7 @@
 },
 "selection_policy_version": "probe_episode_v2",
 "served_at": "2026-05-19T12:00:00Z",
-"state_segment_id": "<id:30>",
+"state_segment_id": "<id:29>",
 "status": "submitted",
 "submitted_at": "2026-05-19T12:00:00Z",
 "target_facets_json": [
@@ -1799,7 +1799,7 @@
 "added": [
 {
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:28>",
+"id": "<id:27>",
 "learning_object_id": "lo_svd_definition",
 "opened_by_attempt_id": null,
 "probe_episode_id": "<id:15>",
@@ -1888,7 +1888,7 @@
 "channel_pin": {
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
-"decision_context_hash": "<id:33>",
+"decision_context_hash": "<id:32>",
 "ensemble_seed": 9635687209424450469,
 "mapping_version": "probe_coarse_v1",
 "projection_algorithm_version": "mvp-0.21",
@@ -1963,7 +1963,7 @@
 }
 },
 "forecast_version": "voi_forecast_v4",
-"id": "<id:35>",
+"id": "<id:34>",
 "learning_object_id": "lo_svd_definition",
 "p_action_change": 0.632612,
 "parameters_json": [
@@ -2103,7 +2103,7 @@
 "schema": "prediction_target/1",
 "unit": "emission"
 },
-"target_hash": "sha256:<id:36>",
+"target_hash": "sha256:<id:35>",
 "unversioned": [
 "resolver_version"
 ]
@@ -2125,7 +2125,7 @@
 "applied_to_belief_counts": 0,
 "applied_to_facet_recall": 0,
 "applied_to_mastery": 0,
-"attempt_id": "<id:37>",
+"attempt_id": "<id:36>",
 "created_at": "2026-05-19T12:00:00Z",
 "expected_skill_gain": 0.005,
 "learning_object_id": "lo_svd_definition",
@@ -2143,9 +2143,9 @@
 "added": [
 {
 "admin_context_json": null,
-"administration_snapshot_hash": "<id:38>",
+"administration_snapshot_hash": "<id:37>",
 "assistance_json": null,
-"card_version_id": "<id:39>",
+"card_version_id": "<id:38>",
 "created_at": "2026-05-19T12:00:00Z",
 "decision_params_hash": null,
 "eligibility_json": {
@@ -2154,10 +2154,10 @@
 "reason": "unseen_in_learnloop",
 "support_representative": true
 },
-"family_id": "<id:40>",
+"family_id": "<id:39>",
 "feedback_condition": null,
 "grader_model_version_id": null,
-"id": "<id:41>",
+"id": "<id:40>",
 "legacy_backfilled": 0,
 "purpose": "diagnostic",
 "reading_phase": null,
@@ -2166,7 +2166,7 @@
 "snapshot_json": {
 "assistance": null,
 "card_contract_hash": "fbb1adb514be5fb514faa0eca308b4e2",
-"card_version_id": "<id:39>",
+"card_version_id": "<id:38>",
 "context": {
 "goal_id": null,
 "purpose": "diagnostic"
@@ -2176,11 +2176,11 @@
 "grader_model_version_id": null,
 "selection_policy_version_id": null,
 "surface_hash": "bb404eacdf96233c37712f29193b68ff",
-"surface_id": "<id:42>",
+"surface_id": "<id:41>",
 "target_contract_version_id": null,
 "target_support_hash": null
 },
-"surface_id": "<id:42>",
+"surface_id": "<id:41>",
 "target_contract_version_id": null,
 "target_support_hash": null
 }
@@ -2190,7 +2190,7 @@
 "added": [
 {
 "card_contract_hash": "fbb1adb514be5fb514faa0eca308b4e2",
-"card_id": "<id:43>",
+"card_id": "<id:42>",
 "contract_json": {
 "evidence_eligibility": {},
 "feedback_policy": {
@@ -2226,7 +2226,7 @@
 }
 },
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:39>",
+"id": "<id:38>",
 "legacy_contract_version_id": null,
 "lineage_kind": null,
 "predecessor_card_version_id": null,
@@ -2239,24 +2239,24 @@
 "added": [
 {
 "created_at": "2026-05-19T12:00:00Z",
-"family_id": "<id:40>",
-"id": "<id:43>"
+"family_id": "<id:39>",
+"id": "<id:42>"
 }
 ]
 },
 "activity_exposure_events": {
 "added": [
 {
-"administration_id": "<id:41>",
+"administration_id": "<id:40>",
 "consumes_unseen": 1,
 "created_at": "2026-05-19T12:00:00Z",
 "detail_json": null,
 "fingerprint": null,
-"id": "<id:44>",
+"id": "<id:43>",
 "kind": "rendered",
 "purpose": "diagnostic",
 "surface_hash": "bb404eacdf96233c37712f29193b68ff",
-"surface_id": "<id:42>"
+"surface_id": "<id:41>"
 }
 ]
 },
@@ -2264,7 +2264,7 @@
 "added": [
 {
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:40>",
+"id": "<id:39>",
 "legacy_kind": "probe",
 "purpose": "diagnostic",
 "title": "pi_svd_define_002"
@@ -2275,14 +2275,14 @@
 "added": [
 {
 "created_at": "2026-05-19T12:00:00Z",
-"family_id": "<id:40>",
+"family_id": "<id:39>",
 "family_spec_json": {
 "learning_object_id": "lo_svd_definition",
 "legacy_item_id": "pi_svd_define_002",
 "legacy_kind": "probe",
 "purpose": "diagnostic"
 },
-"id": "<id:45>",
+"id": "<id:44>",
 "version": 1
 }
 ]
@@ -2290,49 +2290,49 @@
 "activity_observations": {
 "added": [
 {
-"active_interpretation_id": "<id:46>",
-"administration_id": "<id:41>",
-"attempt_id": "<id:37>",
+"active_interpretation_id": "<id:45>",
+"administration_id": "<id:40>",
+"attempt_id": "<id:36>",
 "created_at": "2026-05-19T12:00:00Z",
 "eligibility_reason": "diagnostic_evidence",
 "evidence_eligibility": "diagnostic",
-"id": "<id:47>",
-"response_ref": "<id:37>",
-"surface_id": "<id:42>"
+"id": "<id:46>",
+"response_ref": "<id:36>",
+"surface_id": "<id:41>"
 }
 ]
 },
 "activity_surface_lifecycle_events": {
 "added": [
 {
-"administration_id": "<id:41>",
+"administration_id": "<id:40>",
 "created_at": "2026-05-19T12:00:00Z",
 "detail_json": null,
-"id": "<id:48>",
+"id": "<id:47>",
 "kind": "expose",
 "reason": null,
 "reservation_id": null,
-"surface_id": "<id:42>"
+"surface_id": "<id:41>"
 },
 {
-"administration_id": "<id:41>",
+"administration_id": "<id:40>",
 "created_at": "2026-05-19T12:00:00Z",
 "detail_json": null,
-"id": "<id:49>",
+"id": "<id:48>",
 "kind": "consume",
 "reason": null,
 "reservation_id": null,
-"surface_id": "<id:42>"
+"surface_id": "<id:41>"
 }
 ]
 },
 "activity_surfaces": {
 "added": [
 {
-"card_version_id": "<id:39>",
+"card_version_id": "<id:38>",
 "created_at": "2026-05-19T12:00:00Z",
 "fingerprint": null,
-"id": "<id:42>",
+"id": "<id:41>",
 "legacy_practice_item_id": "pi_svd_define_002",
 "legacy_surface_unverifiable": 0,
 "surface_hash": "bb404eacdf96233c37712f29193b68ff",
@@ -2389,7 +2389,7 @@
 "variant_contract": null
 },
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:50>",
+"id": "<id:49>",
 "practice_item_id": "pi_svd_define_002",
 "schema_version": 1
 }
@@ -2398,14 +2398,14 @@
 "attempt_completion_work": {
 "added": [
 {
-"attempt_id": "<id:37>",
+"attempt_id": "<id:36>",
 "collection_version": "learnloop-events-v1",
 "completed_at": null,
 "created_at": "2026-05-19T12:00:00Z",
 "practice_item_id": "pi_svd_define_002",
 "result_json": {
 "agent_run_id": null,
-"attempt_id": "<id:37>",
+"attempt_id": "<id:36>",
 "bayesian_surprise": 0.026894451938439312,
 "correctness": 0.25,
 "debug": {
@@ -2570,7 +2570,7 @@
 "id": "facet_uncertainty_lo_svd_definition_recall",
 "last_evidence_at": "2026-05-19T12:00:00Z",
 "learning_object_id": "lo_svd_definition",
-"opened_by_attempt_id": "<id:37>",
+"opened_by_attempt_id": "<id:36>",
 "opened_reason": "repeated_facet_failure",
 "status": "open",
 "uncertainty": 0.14755356002055023,
@@ -2653,7 +2653,7 @@
 "open_set": null,
 "released_feedback": [
 {
-"attempt_id": "<id:37>",
+"attempt_id": "<id:36>",
 "causal_feedback": {
 "causal_hypotheses": [],
 "contest_action": {
@@ -2684,7 +2684,7 @@
 },
 "proposed_next_action": null,
 "protected_targets": [],
-"receipt_id": "dr_<id:51>",
+"receipt_id": "dr_<id:50>",
 "repaired_trace": null,
 "repaired_trace_withheld_reason": null,
 "trace_consistency": {},
@@ -2719,7 +2719,7 @@
 "added": [
 {
 "algorithm_version": "mvp-0.21",
-"attempt_id": "<id:37>",
+"attempt_id": "<id:36>",
 "created_at": "2026-05-19T12:00:00Z",
 "payload_json": {
 "ability_transition": {
@@ -2741,7 +2741,7 @@
 "criterion_target_fill_count": 0,
 "diagnosis_present": false,
 "diagnosis_receipt": {
-"attempt_id": "<id:37>",
+"attempt_id": "<id:36>",
 "attribution_axes": [],
 "common_repair_cover": {
 "covers_plausible_set": false,
@@ -2772,7 +2772,7 @@
 "repair_insertion_point": null
 },
 "hypotheses": [],
-"id": "dr_<id:51>",
+"id": "dr_<id:50>",
 "mechanism_taxonomy_hash": null,
 "mechanism_taxonomy_version_id": null,
 "model_reported_support_proposals": {},
@@ -2825,7 +2825,7 @@
 },
 "diagnosis_receipts": [
 {
-"attempt_id": "<id:37>",
+"attempt_id": "<id:36>",
 "attribution_axes": [],
 "common_repair_cover": {
 "covers_plausible_set": false,
@@ -2856,7 +2856,7 @@
 "repair_insertion_point": null
 },
 "hypotheses": [],
-"id": "dr_<id:51>",
+"id": "dr_<id:50>",
 "mechanism_taxonomy_hash": null,
 "mechanism_taxonomy_version_id": null,
 "model_reported_support_proposals": {},
@@ -3051,7 +3051,7 @@
 "id": "facet_uncertainty_lo_svd_definition_recall",
 "last_evidence_at": "2026-05-19T12:00:00Z",
 "learning_object_id": "lo_svd_definition",
-"opened_by_attempt_id": "<id:37>",
+"opened_by_attempt_id": "<id:36>",
 "opened_reason": "repeated_facet_failure",
 "status": "open",
 "uncertainty": 0.14755356002055023,
@@ -3118,7 +3118,7 @@
 "added": [
 {
 "agent_run_id": null,
-"attempt_id": "<id:37>",
+"attempt_id": "<id:36>",
 "created_at": "2026-05-19T12:00:00Z",
 "fallback_reason": null,
 "fatal_errors_json": [],
@@ -3136,7 +3136,7 @@
 "added": [
 {
 "algorithm_version": "mvp-0.21",
-"attempt_id": "<id:37>",
+"attempt_id": "<id:36>",
 "epoch_key": "revision:0",
 "grading_revision": 0,
 "item_a": 1.0,
@@ -3149,7 +3149,7 @@
 "added": [
 {
 "algorithm_version": "mvp-0.21",
-"attempt_id": "<id:37>",
+"attempt_id": "<id:36>",
 "bayesian_surprise": 0.026894451938439312,
 "created_at": "2026-05-19T12:00:00Z",
 "fsrs_interval_factor": 0.9444600233007079,
@@ -3185,7 +3185,7 @@
 "causal_activity_classification_events": {
 "added": [
 {
-"attempt_id": "<id:37>",
+"attempt_id": "<id:36>",
 "closes_pre_intervention_segment": 0,
 "contamination_class": "pure_diagnostic",
 "created_at": "2026-05-19T12:00:00Z",
@@ -3199,11 +3199,11 @@
 "surface_group": null
 },
 "probe_episode_id": "<id:15>",
-"probe_presentation_id": "<id:52>"
+"probe_presentation_id": "<id:51>"
 },
 "eligible_for_certification": 0,
 "eligible_for_fsrs": 0,
-"id": "<id:53>",
+"id": "<id:52>",
 "near_clone": 0,
 "near_clone_basis": "no_source_item",
 "policy_version": "causal_activity_v1",
@@ -3219,7 +3219,7 @@
 "chosen_ref": "partial_credit",
 "created_at": "<wall>",
 "decided_by": "joint_grader",
-"detail_id": "<id:37>",
+"detail_id": "<id:36>",
 "detail_table": "practice_attempts",
 "error_type": null,
 "error_where": null,
@@ -3257,20 +3257,20 @@
 "plan_presentation_id": null,
 "practice_item_id": "pi_svd_define_002",
 "primed": false,
-"probe_presentation_id": "<id:52>",
+"probe_presentation_id": "<id:51>",
 "review_reason": null,
 "review_reason_ids": [],
 "rubric_score": 1.0,
 "session_id": "sess"
 },
-"id": "<id:54>",
+"id": "<id:53>",
 "kind": "grade",
 "parent_id": null,
 "rule": "partial_credit",
 "status": "chosen",
-"subject_id": "<id:37>",
+"subject_id": "<id:36>",
 "subject_kind": "attempt",
-"trace_id": "<id:55>",
+"trace_id": "<id:54>",
 "versions_json": {
 "algorithm_version": "mvp-0.21"
 }
@@ -3385,7 +3385,7 @@
 "grade_interpretations": {
 "added": [
 {
-"administration_id": "<id:41>",
+"administration_id": "<id:40>",
 "calibration_model_hash": "736155f19e0da91c4ddb1e09e1043882",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
 "certainty_discount": 0.6957788023483952,
@@ -3400,12 +3400,12 @@
 },
 "criterion_posteriors_json": null,
 "fallback_reason": null,
-"id": "<id:46>",
+"id": "<id:45>",
 "influence_flag": 0,
-"observation_id": "<id:47>",
+"observation_id": "<id:46>",
 "projection_algorithm_version": "grade_interpretation_v1",
 "quarantine_state": "active",
-"raw_grade_event_id": "<id:56>",
+"raw_grade_event_id": "<id:55>",
 "reference_prior_ids_json": [
 "01GCM0000098AA8E311D619BBB"
 ],
@@ -3423,8 +3423,8 @@
 "added": [
 {
 "agent_run_id": null,
-"assessment_contract_version_id": "<id:50>",
-"attempt_id": "<id:37>",
+"assessment_contract_version_id": "<id:49>",
+"attempt_id": "<id:36>",
 "attribution_json": null,
 "correlation_group": null,
 "created_at": "2026-05-19T12:00:00Z",
@@ -3432,11 +3432,11 @@
 "evidence": "Points given with the grade; no grader wrote evidence.",
 "grader_tier": 0,
 "grading_revision": 0,
-"id": "<id:57>",
+"id": "<id:36>:correctness:given_points",
 "learner_confidence": null,
 "local_grader_id": "given_points",
 "notes": null,
-"observation_id": "<id:37>:correctness:0",
+"observation_id": "<id:36>:correctness:0",
 "points_awarded": 1.0,
 "recipe_id": null,
 "superseded_at": null,
@@ -3474,7 +3474,7 @@
 "algorithm_version": "mvp-0.21",
 "created_at": "2026-05-19T12:00:00Z",
 "elapsed_seconds": 0,
-"id": "lol_<id:58>",
+"id": "lol_<id:56>",
 "intervening_attempt_count": 0,
 "label_type": "same_learning_object_transfer",
 "label_value": 0.25,
@@ -3482,7 +3482,7 @@
 "metadata_json": {
 "label_version": "learnloop-outcomes-v1",
 "outcome": {
-"attempt_id": "<id:37>",
+"attempt_id": "<id:36>",
 "attempt_type": "diagnostic_probe",
 "collection_version": "learnloop-events-v1",
 "correctness": 0.25,
@@ -3520,7 +3520,7 @@
 "session_id": "sess"
 }
 },
-"outcome_attempt_id": "<id:37>",
+"outcome_attempt_id": "<id:36>",
 "outcome_attempt_type": "diagnostic_probe",
 "outcome_correctness": 0.25,
 "outcome_hints_used": 0,
@@ -3534,58 +3534,58 @@
 "measurement_events": {
 "added": [
 {
-"administration_id": "<id:41>",
+"administration_id": "<id:40>",
 "algorithm_version": "mvp-0.6",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:59>",
+"id": "<id:57>",
 "kind": "administration_opened",
 "observation_id": null,
 "payload_json": null
 },
 {
-"administration_id": "<id:41>",
+"administration_id": "<id:40>",
 "algorithm_version": "mvp-0.6",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:60>",
+"id": "<id:58>",
 "kind": "response_appended",
-"observation_id": "<id:47>",
+"observation_id": "<id:46>",
 "payload_json": null
 },
 {
-"administration_id": "<id:41>",
+"administration_id": "<id:40>",
 "algorithm_version": "grade_interpretation_v1",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:61>",
+"id": "<id:59>",
 "kind": "raw_grade_appended",
-"observation_id": "<id:47>",
+"observation_id": "<id:46>",
 "payload_json": {
-"raw_grade_event_id": "<id:56>",
+"raw_grade_event_id": "<id:55>",
 "role": "primary"
 }
 },
 {
-"administration_id": "<id:41>",
+"administration_id": "<id:40>",
 "algorithm_version": "grade_classifier_response_v1",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:62>",
+"id": "<id:60>",
 "kind": "grade_classified",
-"observation_id": "<id:47>",
+"observation_id": "<id:46>",
 "payload_json": {
 "observed_class": "other",
 "unclassifiable": false
 }
 },
 {
-"administration_id": "<id:41>",
+"administration_id": "<id:40>",
 "algorithm_version": "grade_interpretation_v1",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:63>",
+"id": "<id:61>",
 "kind": "grade_interpreted",
-"observation_id": "<id:47>",
+"observation_id": "<id:46>",
 "payload_json": {
 "calibration_model_hash": "736155f19e0da91c4ddb1e09e1043882",
 "fallback_reason": null,
-"interpretation_id": "<id:46>",
+"interpretation_id": "<id:45>",
 "review_flag": false
 }
 }
@@ -3617,7 +3617,7 @@
 "first_hint_progress": null,
 "grader_confidence": 1.0,
 "hints_used": 0,
-"id": "<id:37>",
+"id": "<id:36>",
 "latency_seconds": null,
 "learner_answer_md": "answer",
 "learning_object_id": "lo_svd_definition",
@@ -3627,7 +3627,7 @@
 "practice_item_id": "pi_svd_define_002",
 "practice_mode": "short_answer",
 "primed": 0,
-"probe_presentation_id": "<id:52>",
+"probe_presentation_id": "<id:51>",
 "received_at": null,
 "received_at_source": null,
 "reference_status": "not_applicable",
@@ -3686,7 +3686,7 @@
 "changed": [
 {
 "after": {
-"active_state_segment_id": "<id:64>",
+"active_state_segment_id": "<id:62>",
 "algorithm_version": "mvp-0.21",
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
@@ -3696,7 +3696,7 @@
 "completion_reason": null,
 "created_at": "2026-05-19T12:00:00Z",
 "entered_at": "2026-05-19T12:00:00Z",
-"hypothesis_set_id": "<id:29>",
+"hypothesis_set_id": "<id:28>",
 "id": "<id:15>",
 "learning_object_id": "lo_svd_definition",
 "maximum_observations": 4,
@@ -3714,7 +3714,7 @@
 "updated_at": "2026-05-19T12:00:00Z"
 },
 "before": {
-"active_state_segment_id": "<id:28>",
+"active_state_segment_id": "<id:27>",
 "algorithm_version": "mvp-0.21",
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
@@ -3724,7 +3724,7 @@
 "completion_reason": null,
 "created_at": "2026-05-19T12:00:00Z",
 "entered_at": "2026-05-19T12:00:00Z",
-"hypothesis_set_id": "<id:29>",
+"hypothesis_set_id": "<id:28>",
 "id": "<id:15>",
 "learning_object_id": "lo_svd_definition",
 "maximum_observations": 4,
@@ -3752,7 +3752,7 @@
 "evidence_source": "real_learner",
 "generator_version": null,
 "grader_version": "diagnostic_microprobe_v1",
-"id": "<id:31>",
+"id": "<id:30>",
 "parameter_posterior_json": {
 "outcome_counts": {
 "other_or_unknown": {
@@ -3776,7 +3776,7 @@
 "evidence_source": "real_learner",
 "generator_version": null,
 "grader_version": "diagnostic_microprobe_v1",
-"id": "<id:31>",
+"id": "<id:30>",
 "parameter_posterior_json": {
 "outcome_counts": {
 "other_or_unknown": {
@@ -3804,7 +3804,7 @@
 "effective_sample_size": 1.0,
 "evidence_source": "real_learner",
 "grader_version": "diagnostic_microprobe_v1",
-"id": "<id:65>",
+"id": "<id:63>",
 "parameter_posterior_json": {
 "outcome_counts": {
 "other_or_unknown": {
@@ -3829,7 +3829,7 @@
 "probe_observations": {
 "added": [
 {
-"attempt_id": "<id:37>",
+"attempt_id": "<id:36>",
 "contamination_json": null,
 "created_at": "2026-05-19T12:00:00Z",
 "eligible_for_completion": 1,
@@ -3840,7 +3840,7 @@
 "robust": {
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
-"decision_context_hash": "<id:66>",
+"decision_context_hash": "<id:64>",
 "ensemble_seed": 17483152252295617838,
 "mapping_version": "probe_coarse_v1",
 "observed_emission": "other|high",
@@ -3858,7 +3858,7 @@
 "grading_source": "ai",
 "observed_outcome": "other_systematic_error"
 },
-"id": "<id:67>",
+"id": "<id:65>",
 "independent_evidence_discount": 1.0,
 "posterior_after_json": {
 "other_or_unknown": 0.26063140090065035,
@@ -3886,7 +3886,7 @@
 "entropy_at_selection": 1.2029372939887641,
 "expected_information_gain": 0.14066790531442142,
 "expires_at": "2026-05-19T16:00:00Z",
-"id": "<id:52>",
+"id": "<id:51>",
 "instrument_card_id": "card_svd_contrast",
 "instrument_card_snapshot_json": {
 "card_id": "card_svd_contrast",
@@ -3983,7 +3983,7 @@
 "channel_pin": {
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
-"decision_context_hash": "<id:66>",
+"decision_context_hash": "<id:64>",
 "ensemble_seed": 17483152252295617838,
 "mapping_version": "probe_coarse_v1",
 "projection_algorithm_version": "mvp-0.21",
@@ -3999,7 +3999,7 @@
 },
 "selection_policy_version": "probe_episode_v2",
 "served_at": "2026-05-19T12:00:00Z",
-"state_segment_id": "<id:28>",
+"state_segment_id": "<id:27>",
 "status": "submitted",
 "submitted_at": "2026-05-19T12:00:00Z",
 "target_facets_json": [
@@ -4027,7 +4027,7 @@
 "added": [
 {
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:64>",
+"id": "<id:62>",
 "learning_object_id": "lo_svd_definition",
 "opened_by_attempt_id": null,
 "probe_episode_id": "<id:15>",
@@ -4039,9 +4039,9 @@
 "raw_grade_events": {
 "added": [
 {
-"administration_id": "<id:41>",
+"administration_id": "<id:40>",
 "agent_run_id": null,
-"attempt_id": "<id:37>",
+"attempt_id": "<id:36>",
 "confidence_bucket": "high",
 "context_features_json": {
 "domain": "lo_svd_definition",
@@ -4062,9 +4062,9 @@
 "grader_output_schema_version": "grading_proposal_v1",
 "grader_provider": "ai",
 "grading_prompt_version": "grading_prompt_v1",
-"id": "<id:56>",
+"id": "<id:55>",
 "model_confidence": 1.0,
-"observation_id": "<id:47>",
+"observation_id": "<id:46>",
 "observed_class": "other",
 "predecessor_event_id": null,
 "raw_output_json": {
@@ -4085,7 +4085,7 @@
 "rubric_score": 1
 },
 "response_classifier_version": "grade_classifier_response_v1",
-"response_ref": "<id:37>",
+"response_ref": "<id:36>",
 "role": "primary"
 }
 ]
@@ -4098,7 +4098,7 @@
 "chosen_practice_item_id": "pi_svd_define_002",
 "chosen_ref": "pi_svd_define_002",
 "created_at": "2026-05-19T12:00:00Z",
-"decision_ref": "<id:52>",
+"decision_ref": "<id:51>",
 "eig_nats": 0.14066790531442142,
 "evsi_lcb_minutes": null,
 "evsi_point_minutes": null,
@@ -4116,7 +4116,7 @@
 "channel_pin": {
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
-"decision_context_hash": "<id:66>",
+"decision_context_hash": "<id:64>",
 "ensemble_seed": 17483152252295617838,
 "mapping_version": "probe_coarse_v1",
 "projection_algorithm_version": "mvp-0.21",
@@ -4191,7 +4191,7 @@
 }
 },
 "forecast_version": "voi_forecast_v4",
-"id": "<id:68>",
+"id": "<id:66>",
 "learning_object_id": "lo_svd_definition",
 "p_action_change": 0.33347585,
 "parameters_json": [
@@ -4251,9 +4251,9 @@
 "value": 4
 }
 ],
-"presentation_id": "<id:52>",
+"presentation_id": "<id:51>",
 "probe_episode_id": "<id:15>",
-"receipt_key": "probe_selection:<id:52>",
+"receipt_key": "probe_selection:<id:51>",
 "scheduler_candidate_id": null,
 "site": "probe_selection",
 "source_attempt_id": null,
@@ -4304,7 +4304,7 @@
 "kind": "probe_selection"
 },
 "anchor": {
-"id": "<id:52>",
+"id": "<id:51>",
 "kind": "presentation"
 },
 "event_version": "voi_forecast_v4",
@@ -4331,7 +4331,7 @@
 "schema": "prediction_target/1",
 "unit": "emission"
 },
-"target_hash": "sha256:<id:69>",
+"target_hash": "sha256:<id:67>",
 "unversioned": [
 "resolver_version"
 ]
@@ -4353,7 +4353,7 @@
 "applied_to_belief_counts": 0,
 "applied_to_facet_recall": 0,
 "applied_to_mastery": 0,
-"attempt_id": "<id:70>",
+"attempt_id": "<id:68>",
 "created_at": "2026-05-19T12:00:00Z",
 "expected_skill_gain": 0.005,
 "learning_object_id": "lo_svd_definition",
@@ -4371,25 +4371,25 @@
 "added": [
 {
 "admin_context_json": null,
-"administration_snapshot_hash": "<id:71>",
+"administration_snapshot_hash": "<id:69>",
 "assistance_json": null,
-"card_version_id": "<id:72>",
+"card_version_id": "<id:70>",
 "created_at": "2026-05-19T12:00:00Z",
 "decision_params_hash": null,
 "eligibility_json": {
 "collisions": {
 "exact": [
-"<id:44>"
+"<id:43>"
 ]
 },
 "is_unseen": false,
 "reason": "exact_surface_collision",
 "support_representative": true
 },
-"family_id": "<id:73>",
+"family_id": "<id:71>",
 "feedback_condition": null,
 "grader_model_version_id": null,
-"id": "<id:74>",
+"id": "<id:72>",
 "legacy_backfilled": 0,
 "purpose": "diagnostic",
 "reading_phase": null,
@@ -4398,7 +4398,7 @@
 "snapshot_json": {
 "assistance": null,
 "card_contract_hash": "fbb1adb514be5fb514faa0eca308b4e2",
-"card_version_id": "<id:72>",
+"card_version_id": "<id:70>",
 "context": {
 "goal_id": null,
 "purpose": "diagnostic"
@@ -4408,11 +4408,11 @@
 "grader_model_version_id": null,
 "selection_policy_version_id": null,
 "surface_hash": "bb404eacdf96233c37712f29193b68ff",
-"surface_id": "<id:75>",
+"surface_id": "<id:73>",
 "target_contract_version_id": null,
 "target_support_hash": null
 },
-"surface_id": "<id:75>",
+"surface_id": "<id:73>",
 "target_contract_version_id": null,
 "target_support_hash": null
 }
@@ -4422,7 +4422,7 @@
 "added": [
 {
 "card_contract_hash": "fbb1adb514be5fb514faa0eca308b4e2",
-"card_id": "<id:76>",
+"card_id": "<id:74>",
 "contract_json": {
 "evidence_eligibility": {},
 "feedback_policy": {
@@ -4458,7 +4458,7 @@
 }
 },
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:72>",
+"id": "<id:70>",
 "legacy_contract_version_id": null,
 "lineage_kind": null,
 "predecessor_card_version_id": null,
@@ -4471,24 +4471,24 @@
 "added": [
 {
 "created_at": "2026-05-19T12:00:00Z",
-"family_id": "<id:73>",
-"id": "<id:76>"
+"family_id": "<id:71>",
+"id": "<id:74>"
 }
 ]
 },
 "activity_exposure_events": {
 "added": [
 {
-"administration_id": "<id:74>",
+"administration_id": "<id:72>",
 "consumes_unseen": 1,
 "created_at": "2026-05-19T12:00:00Z",
 "detail_json": null,
 "fingerprint": null,
-"id": "<id:77>",
+"id": "<id:75>",
 "kind": "rendered",
 "purpose": "diagnostic",
 "surface_hash": "bb404eacdf96233c37712f29193b68ff",
-"surface_id": "<id:75>"
+"surface_id": "<id:73>"
 }
 ]
 },
@@ -4496,7 +4496,7 @@
 "added": [
 {
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:73>",
+"id": "<id:71>",
 "legacy_kind": "probe",
 "purpose": "diagnostic",
 "title": "pi_svd_define_003"
@@ -4507,14 +4507,14 @@
 "added": [
 {
 "created_at": "2026-05-19T12:00:00Z",
-"family_id": "<id:73>",
+"family_id": "<id:71>",
 "family_spec_json": {
 "learning_object_id": "lo_svd_definition",
 "legacy_item_id": "pi_svd_define_003",
 "legacy_kind": "probe",
 "purpose": "diagnostic"
 },
-"id": "<id:78>",
+"id": "<id:76>",
 "version": 1
 }
 ]
@@ -4522,49 +4522,49 @@
 "activity_observations": {
 "added": [
 {
-"active_interpretation_id": "<id:79>",
-"administration_id": "<id:74>",
-"attempt_id": "<id:70>",
+"active_interpretation_id": "<id:77>",
+"administration_id": "<id:72>",
+"attempt_id": "<id:68>",
 "created_at": "2026-05-19T12:00:00Z",
 "eligibility_reason": "diagnostic_evidence",
 "evidence_eligibility": "diagnostic",
-"id": "<id:80>",
-"response_ref": "<id:70>",
-"surface_id": "<id:75>"
+"id": "<id:78>",
+"response_ref": "<id:68>",
+"surface_id": "<id:73>"
 }
 ]
 },
 "activity_surface_lifecycle_events": {
 "added": [
 {
-"administration_id": "<id:74>",
+"administration_id": "<id:72>",
 "created_at": "2026-05-19T12:00:00Z",
 "detail_json": null,
-"id": "<id:81>",
+"id": "<id:79>",
 "kind": "expose",
 "reason": null,
 "reservation_id": null,
-"surface_id": "<id:75>"
+"surface_id": "<id:73>"
 },
 {
-"administration_id": "<id:74>",
+"administration_id": "<id:72>",
 "created_at": "2026-05-19T12:00:00Z",
 "detail_json": null,
-"id": "<id:82>",
+"id": "<id:80>",
 "kind": "consume",
 "reason": null,
 "reservation_id": null,
-"surface_id": "<id:75>"
+"surface_id": "<id:73>"
 }
 ]
 },
 "activity_surfaces": {
 "added": [
 {
-"card_version_id": "<id:72>",
+"card_version_id": "<id:70>",
 "created_at": "2026-05-19T12:00:00Z",
 "fingerprint": null,
-"id": "<id:75>",
+"id": "<id:73>",
 "legacy_practice_item_id": "pi_svd_define_003",
 "legacy_surface_unverifiable": 0,
 "surface_hash": "bb404eacdf96233c37712f29193b68ff",
@@ -4621,7 +4621,7 @@
 "variant_contract": null
 },
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:83>",
+"id": "<id:81>",
 "practice_item_id": "pi_svd_define_003",
 "schema_version": 1
 }
@@ -4630,14 +4630,14 @@
 "attempt_completion_work": {
 "added": [
 {
-"attempt_id": "<id:70>",
+"attempt_id": "<id:68>",
 "collection_version": "learnloop-events-v1",
 "completed_at": null,
 "created_at": "2026-05-19T12:00:00Z",
 "practice_item_id": "pi_svd_define_003",
 "result_json": {
 "agent_run_id": null,
-"attempt_id": "<id:70>",
+"attempt_id": "<id:68>",
 "bayesian_surprise": 0.013529733984449344,
 "correctness": 0.25,
 "debug": {
@@ -4802,7 +4802,7 @@
 "id": "facet_uncertainty_lo_svd_definition_recall",
 "last_evidence_at": "2026-05-19T12:00:00Z",
 "learning_object_id": "lo_svd_definition",
-"opened_by_attempt_id": "<id:70>",
+"opened_by_attempt_id": "<id:68>",
 "opened_reason": "repeated_facet_failure",
 "status": "open",
 "uncertainty": 0.14755356002055023,
@@ -4885,7 +4885,7 @@
 "open_set": null,
 "released_feedback": [
 {
-"attempt_id": "<id:70>",
+"attempt_id": "<id:68>",
 "causal_feedback": {
 "causal_hypotheses": [],
 "contest_action": {
@@ -4916,7 +4916,7 @@
 },
 "proposed_next_action": null,
 "protected_targets": [],
-"receipt_id": "dr_<id:84>",
+"receipt_id": "dr_<id:82>",
 "repaired_trace": null,
 "repaired_trace_withheld_reason": null,
 "trace_consistency": {},
@@ -4951,7 +4951,7 @@
 "added": [
 {
 "algorithm_version": "mvp-0.21",
-"attempt_id": "<id:70>",
+"attempt_id": "<id:68>",
 "created_at": "2026-05-19T12:00:00Z",
 "payload_json": {
 "ability_transition": {
@@ -4973,7 +4973,7 @@
 "criterion_target_fill_count": 0,
 "diagnosis_present": false,
 "diagnosis_receipt": {
-"attempt_id": "<id:70>",
+"attempt_id": "<id:68>",
 "attribution_axes": [],
 "common_repair_cover": {
 "covers_plausible_set": false,
@@ -5004,7 +5004,7 @@
 "repair_insertion_point": null
 },
 "hypotheses": [],
-"id": "dr_<id:84>",
+"id": "dr_<id:82>",
 "mechanism_taxonomy_hash": null,
 "mechanism_taxonomy_version_id": null,
 "model_reported_support_proposals": {},
@@ -5057,7 +5057,7 @@
 },
 "diagnosis_receipts": [
 {
-"attempt_id": "<id:70>",
+"attempt_id": "<id:68>",
 "attribution_axes": [],
 "common_repair_cover": {
 "covers_plausible_set": false,
@@ -5088,7 +5088,7 @@
 "repair_insertion_point": null
 },
 "hypotheses": [],
-"id": "dr_<id:84>",
+"id": "dr_<id:82>",
 "mechanism_taxonomy_hash": null,
 "mechanism_taxonomy_version_id": null,
 "model_reported_support_proposals": {},
@@ -5283,7 +5283,7 @@
 "id": "facet_uncertainty_lo_svd_definition_recall",
 "last_evidence_at": "2026-05-19T12:00:00Z",
 "learning_object_id": "lo_svd_definition",
-"opened_by_attempt_id": "<id:70>",
+"opened_by_attempt_id": "<id:68>",
 "opened_reason": "repeated_facet_failure",
 "status": "open",
 "uncertainty": 0.14755356002055023,
@@ -5350,7 +5350,7 @@
 "added": [
 {
 "agent_run_id": null,
-"attempt_id": "<id:70>",
+"attempt_id": "<id:68>",
 "created_at": "2026-05-19T12:00:00Z",
 "fallback_reason": null,
 "fatal_errors_json": [],
@@ -5368,7 +5368,7 @@
 "added": [
 {
 "algorithm_version": "mvp-0.21",
-"attempt_id": "<id:70>",
+"attempt_id": "<id:68>",
 "epoch_key": "revision:0",
 "grading_revision": 0,
 "item_a": 1.0,
@@ -5381,7 +5381,7 @@
 "added": [
 {
 "algorithm_version": "mvp-0.21",
-"attempt_id": "<id:70>",
+"attempt_id": "<id:68>",
 "bayesian_surprise": 0.013529733984449344,
 "created_at": "2026-05-19T12:00:00Z",
 "fsrs_interval_factor": 0.9568874026490762,
@@ -5417,7 +5417,7 @@
 "causal_activity_classification_events": {
 "added": [
 {
-"attempt_id": "<id:70>",
+"attempt_id": "<id:68>",
 "closes_pre_intervention_segment": 0,
 "contamination_class": "pure_diagnostic",
 "created_at": "2026-05-19T12:00:00Z",
@@ -5431,11 +5431,11 @@
 "surface_group": null
 },
 "probe_episode_id": "<id:15>",
-"probe_presentation_id": "<id:85>"
+"probe_presentation_id": "<id:83>"
 },
 "eligible_for_certification": 0,
 "eligible_for_fsrs": 0,
-"id": "<id:86>",
+"id": "<id:84>",
 "near_clone": 0,
 "near_clone_basis": "no_source_item",
 "policy_version": "causal_activity_v1",
@@ -5451,7 +5451,7 @@
 "chosen_ref": "partial_credit",
 "created_at": "<wall>",
 "decided_by": "joint_grader",
-"detail_id": "<id:70>",
+"detail_id": "<id:68>",
 "detail_table": "practice_attempts",
 "error_type": null,
 "error_where": null,
@@ -5489,20 +5489,20 @@
 "plan_presentation_id": null,
 "practice_item_id": "pi_svd_define_003",
 "primed": false,
-"probe_presentation_id": "<id:85>",
+"probe_presentation_id": "<id:83>",
 "review_reason": null,
 "review_reason_ids": [],
 "rubric_score": 1.0,
 "session_id": "sess"
 },
-"id": "<id:87>",
+"id": "<id:85>",
 "kind": "grade",
 "parent_id": null,
 "rule": "partial_credit",
 "status": "chosen",
-"subject_id": "<id:70>",
+"subject_id": "<id:68>",
 "subject_kind": "attempt",
-"trace_id": "<id:88>",
+"trace_id": "<id:86>",
 "versions_json": {
 "algorithm_version": "mvp-0.21"
 }
@@ -5619,7 +5619,7 @@
 "grade_interpretations": {
 "added": [
 {
-"administration_id": "<id:74>",
+"administration_id": "<id:72>",
 "calibration_model_hash": "736155f19e0da91c4ddb1e09e1043882",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
 "certainty_discount": 0.6957788023483952,
@@ -5634,12 +5634,12 @@
 },
 "criterion_posteriors_json": null,
 "fallback_reason": null,
-"id": "<id:79>",
+"id": "<id:77>",
 "influence_flag": 0,
-"observation_id": "<id:80>",
+"observation_id": "<id:78>",
 "projection_algorithm_version": "grade_interpretation_v1",
 "quarantine_state": "active",
-"raw_grade_event_id": "<id:89>",
+"raw_grade_event_id": "<id:87>",
 "reference_prior_ids_json": [
 "01GCM0000098AA8E311D619BBB"
 ],
@@ -5657,8 +5657,8 @@
 "added": [
 {
 "agent_run_id": null,
-"assessment_contract_version_id": "<id:83>",
-"attempt_id": "<id:70>",
+"assessment_contract_version_id": "<id:81>",
+"attempt_id": "<id:68>",
 "attribution_json": null,
 "correlation_group": null,
 "created_at": "2026-05-19T12:00:00Z",
@@ -5666,11 +5666,11 @@
 "evidence": "Points given with the grade; no grader wrote evidence.",
 "grader_tier": 0,
 "grading_revision": 0,
-"id": "<id:90>",
+"id": "<id:68>:correctness:given_points",
 "learner_confidence": null,
 "local_grader_id": "given_points",
 "notes": null,
-"observation_id": "<id:70>:correctness:0",
+"observation_id": "<id:68>:correctness:0",
 "points_awarded": 1.0,
 "recipe_id": null,
 "superseded_at": null,
@@ -5708,7 +5708,7 @@
 "algorithm_version": "mvp-0.21",
 "created_at": "2026-05-19T12:00:00Z",
 "elapsed_seconds": 0,
-"id": "lol_<id:91>",
+"id": "lol_<id:88>",
 "intervening_attempt_count": 0,
 "label_type": "same_learning_object_transfer",
 "label_value": 0.25,
@@ -5716,7 +5716,7 @@
 "metadata_json": {
 "label_version": "learnloop-outcomes-v1",
 "outcome": {
-"attempt_id": "<id:70>",
+"attempt_id": "<id:68>",
 "attempt_type": "diagnostic_probe",
 "collection_version": "learnloop-events-v1",
 "correctness": 0.25,
@@ -5735,7 +5735,7 @@
 "session_id": "sess"
 },
 "source": {
-"attempt_id": "<id:37>",
+"attempt_id": "<id:36>",
 "attempt_type": "diagnostic_probe",
 "collection_version": "learnloop-events-v1",
 "correctness": 0.25,
@@ -5754,20 +5754,20 @@
 "session_id": "sess"
 }
 },
-"outcome_attempt_id": "<id:70>",
+"outcome_attempt_id": "<id:68>",
 "outcome_attempt_type": "diagnostic_probe",
 "outcome_correctness": 0.25,
 "outcome_hints_used": 0,
 "outcome_latency_seconds": null,
 "outcome_rubric_score": 1,
 "practice_item_id": "pi_svd_define_002",
-"source_attempt_id": "<id:37>"
+"source_attempt_id": "<id:36>"
 },
 {
 "algorithm_version": "mvp-0.21",
 "created_at": "2026-05-19T12:00:00Z",
 "elapsed_seconds": 0,
-"id": "lol_<id:92>",
+"id": "lol_<id:89>",
 "intervening_attempt_count": 0,
 "label_type": "same_learning_object_transfer",
 "label_value": 0.25,
@@ -5775,7 +5775,7 @@
 "metadata_json": {
 "label_version": "learnloop-outcomes-v1",
 "outcome": {
-"attempt_id": "<id:70>",
+"attempt_id": "<id:68>",
 "attempt_type": "diagnostic_probe",
 "collection_version": "learnloop-events-v1",
 "correctness": 0.25,
@@ -5813,7 +5813,7 @@
 "session_id": "sess"
 }
 },
-"outcome_attempt_id": "<id:70>",
+"outcome_attempt_id": "<id:68>",
 "outcome_attempt_type": "diagnostic_probe",
 "outcome_correctness": 0.25,
 "outcome_hints_used": 0,
@@ -5827,58 +5827,58 @@
 "measurement_events": {
 "added": [
 {
-"administration_id": "<id:74>",
+"administration_id": "<id:72>",
 "algorithm_version": "mvp-0.6",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:93>",
+"id": "<id:90>",
 "kind": "administration_opened",
 "observation_id": null,
 "payload_json": null
 },
 {
-"administration_id": "<id:74>",
+"administration_id": "<id:72>",
 "algorithm_version": "mvp-0.6",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:94>",
+"id": "<id:91>",
 "kind": "response_appended",
-"observation_id": "<id:80>",
+"observation_id": "<id:78>",
 "payload_json": null
 },
 {
-"administration_id": "<id:74>",
+"administration_id": "<id:72>",
 "algorithm_version": "grade_interpretation_v1",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:95>",
+"id": "<id:92>",
 "kind": "raw_grade_appended",
-"observation_id": "<id:80>",
+"observation_id": "<id:78>",
 "payload_json": {
-"raw_grade_event_id": "<id:89>",
+"raw_grade_event_id": "<id:87>",
 "role": "primary"
 }
 },
 {
-"administration_id": "<id:74>",
+"administration_id": "<id:72>",
 "algorithm_version": "grade_classifier_response_v1",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:96>",
+"id": "<id:93>",
 "kind": "grade_classified",
-"observation_id": "<id:80>",
+"observation_id": "<id:78>",
 "payload_json": {
 "observed_class": "other",
 "unclassifiable": false
 }
 },
 {
-"administration_id": "<id:74>",
+"administration_id": "<id:72>",
 "algorithm_version": "grade_interpretation_v1",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:97>",
+"id": "<id:94>",
 "kind": "grade_interpreted",
-"observation_id": "<id:80>",
+"observation_id": "<id:78>",
 "payload_json": {
 "calibration_model_hash": "736155f19e0da91c4ddb1e09e1043882",
 "fallback_reason": null,
-"interpretation_id": "<id:79>",
+"interpretation_id": "<id:77>",
 "review_flag": false
 }
 }
@@ -5910,7 +5910,7 @@
 "first_hint_progress": null,
 "grader_confidence": 1.0,
 "hints_used": 0,
-"id": "<id:70>",
+"id": "<id:68>",
 "latency_seconds": null,
 "learner_answer_md": "answer",
 "learning_object_id": "lo_svd_definition",
@@ -5920,7 +5920,7 @@
 "practice_item_id": "pi_svd_define_003",
 "practice_mode": "short_answer",
 "primed": 0,
-"probe_presentation_id": "<id:85>",
+"probe_presentation_id": "<id:83>",
 "received_at": null,
 "received_at_source": null,
 "reference_status": "not_applicable",
@@ -5979,7 +5979,7 @@
 "changed": [
 {
 "after": {
-"active_state_segment_id": "<id:98>",
+"active_state_segment_id": "<id:95>",
 "algorithm_version": "mvp-0.21",
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
@@ -5989,7 +5989,7 @@
 "completion_reason": null,
 "created_at": "2026-05-19T12:00:00Z",
 "entered_at": "2026-05-19T12:00:00Z",
-"hypothesis_set_id": "<id:29>",
+"hypothesis_set_id": "<id:28>",
 "id": "<id:15>",
 "learning_object_id": "lo_svd_definition",
 "maximum_observations": 4,
@@ -6007,7 +6007,7 @@
 "updated_at": "2026-05-19T12:00:00Z"
 },
 "before": {
-"active_state_segment_id": "<id:64>",
+"active_state_segment_id": "<id:62>",
 "algorithm_version": "mvp-0.21",
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
@@ -6017,7 +6017,7 @@
 "completion_reason": null,
 "created_at": "2026-05-19T12:00:00Z",
 "entered_at": "2026-05-19T12:00:00Z",
-"hypothesis_set_id": "<id:29>",
+"hypothesis_set_id": "<id:28>",
 "id": "<id:15>",
 "learning_object_id": "lo_svd_definition",
 "maximum_observations": 4,
@@ -6045,7 +6045,7 @@
 "evidence_source": "real_learner",
 "generator_version": null,
 "grader_version": "diagnostic_microprobe_v1",
-"id": "<id:31>",
+"id": "<id:30>",
 "parameter_posterior_json": {
 "outcome_counts": {
 "other_or_unknown": {
@@ -6069,7 +6069,7 @@
 "evidence_source": "real_learner",
 "generator_version": null,
 "grader_version": "diagnostic_microprobe_v1",
-"id": "<id:31>",
+"id": "<id:30>",
 "parameter_posterior_json": {
 "outcome_counts": {
 "other_or_unknown": {
@@ -6097,7 +6097,7 @@
 "effective_sample_size": 1.0,
 "evidence_source": "real_learner",
 "grader_version": "diagnostic_microprobe_v1",
-"id": "<id:99>",
+"id": "<id:96>",
 "parameter_posterior_json": {
 "outcome_counts": {
 "other_or_unknown": {
@@ -6122,7 +6122,7 @@
 "probe_observations": {
 "added": [
 {
-"attempt_id": "<id:70>",
+"attempt_id": "<id:68>",
 "contamination_json": null,
 "created_at": "2026-05-19T12:00:00Z",
 "eligible_for_completion": 1,
@@ -6133,7 +6133,7 @@
 "robust": {
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
-"decision_context_hash": "<id:100>",
+"decision_context_hash": "<id:97>",
 "ensemble_seed": 7221554735353706475,
 "mapping_version": "probe_coarse_v1",
 "observed_emission": "other|high",
@@ -6151,7 +6151,7 @@
 "grading_source": "ai",
 "observed_outcome": "other_systematic_error"
 },
-"id": "<id:101>",
+"id": "<id:98>",
 "independent_evidence_discount": 1.0,
 "posterior_after_json": {
 "other_or_unknown": 0.2916983214025364,
@@ -6179,7 +6179,7 @@
 "entropy_at_selection": 1.0263913477318896,
 "expected_information_gain": 0.05080687921419039,
 "expires_at": "2026-05-19T16:00:00Z",
-"id": "<id:85>",
+"id": "<id:83>",
 "instrument_card_id": "card_svd_contrast_more",
 "instrument_card_snapshot_json": {
 "card_id": "card_svd_contrast_more",
@@ -6276,7 +6276,7 @@
 "channel_pin": {
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
-"decision_context_hash": "<id:100>",
+"decision_context_hash": "<id:97>",
 "ensemble_seed": 7221554735353706475,
 "mapping_version": "probe_coarse_v1",
 "projection_algorithm_version": "mvp-0.21",
@@ -6292,7 +6292,7 @@
 },
 "selection_policy_version": "probe_episode_v2",
 "served_at": "2026-05-19T12:00:00Z",
-"state_segment_id": "<id:64>",
+"state_segment_id": "<id:62>",
 "status": "submitted",
 "submitted_at": "2026-05-19T12:00:00Z",
 "target_facets_json": [
@@ -6320,7 +6320,7 @@
 "added": [
 {
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:98>",
+"id": "<id:95>",
 "learning_object_id": "lo_svd_definition",
 "opened_by_attempt_id": null,
 "probe_episode_id": "<id:15>",
@@ -6332,9 +6332,9 @@
 "raw_grade_events": {
 "added": [
 {
-"administration_id": "<id:74>",
+"administration_id": "<id:72>",
 "agent_run_id": null,
-"attempt_id": "<id:70>",
+"attempt_id": "<id:68>",
 "confidence_bucket": "high",
 "context_features_json": {
 "domain": "lo_svd_definition",
@@ -6355,9 +6355,9 @@
 "grader_output_schema_version": "grading_proposal_v1",
 "grader_provider": "ai",
 "grading_prompt_version": "grading_prompt_v1",
-"id": "<id:89>",
+"id": "<id:87>",
 "model_confidence": 1.0,
-"observation_id": "<id:80>",
+"observation_id": "<id:78>",
 "observed_class": "other",
 "predecessor_event_id": null,
 "raw_output_json": {
@@ -6378,7 +6378,7 @@
 "rubric_score": 1
 },
 "response_classifier_version": "grade_classifier_response_v1",
-"response_ref": "<id:70>",
+"response_ref": "<id:68>",
 "role": "primary"
 }
 ]
@@ -6391,7 +6391,7 @@
 "chosen_practice_item_id": "pi_svd_define_003",
 "chosen_ref": "pi_svd_define_003",
 "created_at": "2026-05-19T12:00:00Z",
-"decision_ref": "<id:85>",
+"decision_ref": "<id:83>",
 "eig_nats": 0.05080687921419039,
 "evsi_lcb_minutes": null,
 "evsi_point_minutes": null,
@@ -6409,7 +6409,7 @@
 "channel_pin": {
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
-"decision_context_hash": "<id:100>",
+"decision_context_hash": "<id:97>",
 "ensemble_seed": 7221554735353706475,
 "mapping_version": "probe_coarse_v1",
 "projection_algorithm_version": "mvp-0.21",
@@ -6484,7 +6484,7 @@
 }
 },
 "forecast_version": "voi_forecast_v4",
-"id": "<id:102>",
+"id": "<id:99>",
 "learning_object_id": "lo_svd_definition",
 "p_action_change": 0.0,
 "parameters_json": [
@@ -6544,9 +6544,9 @@
 "value": 4
 }
 ],
-"presentation_id": "<id:85>",
+"presentation_id": "<id:83>",
 "probe_episode_id": "<id:15>",
-"receipt_key": "probe_selection:<id:85>",
+"receipt_key": "probe_selection:<id:83>",
 "scheduler_candidate_id": null,
 "site": "probe_selection",
 "source_attempt_id": null,
@@ -6597,7 +6597,7 @@
 "kind": "probe_selection"
 },
 "anchor": {
-"id": "<id:85>",
+"id": "<id:83>",
 "kind": "presentation"
 },
 "event_version": "voi_forecast_v4",
@@ -6624,7 +6624,7 @@
 "schema": "prediction_target/1",
 "unit": "emission"
 },
-"target_hash": "sha256:<id:103>",
+"target_hash": "sha256:<id:100>",
 "unversioned": [
 "resolver_version"
 ]
@@ -6646,7 +6646,7 @@
 "applied_to_belief_counts": 0,
 "applied_to_facet_recall": 0,
 "applied_to_mastery": 0,
-"attempt_id": "<id:104>",
+"attempt_id": "<id:101>",
 "created_at": "2026-05-19T12:00:00Z",
 "expected_skill_gain": 0.005,
 "learning_object_id": "lo_svd_definition",
@@ -6664,26 +6664,26 @@
 "added": [
 {
 "admin_context_json": null,
-"administration_snapshot_hash": "<id:105>",
+"administration_snapshot_hash": "<id:102>",
 "assistance_json": null,
-"card_version_id": "<id:106>",
+"card_version_id": "<id:103>",
 "created_at": "2026-05-19T12:00:00Z",
 "decision_params_hash": null,
 "eligibility_json": {
 "collisions": {
 "exact": [
-"<id:44>",
-"<id:77>"
+"<id:43>",
+"<id:75>"
 ]
 },
 "is_unseen": false,
 "reason": "exact_surface_collision",
 "support_representative": true
 },
-"family_id": "<id:107>",
+"family_id": "<id:104>",
 "feedback_condition": null,
 "grader_model_version_id": null,
-"id": "<id:108>",
+"id": "<id:105>",
 "legacy_backfilled": 0,
 "purpose": "diagnostic",
 "reading_phase": null,
@@ -6692,7 +6692,7 @@
 "snapshot_json": {
 "assistance": null,
 "card_contract_hash": "fbb1adb514be5fb514faa0eca308b4e2",
-"card_version_id": "<id:106>",
+"card_version_id": "<id:103>",
 "context": {
 "goal_id": null,
 "purpose": "diagnostic"
@@ -6702,11 +6702,11 @@
 "grader_model_version_id": null,
 "selection_policy_version_id": null,
 "surface_hash": "bb404eacdf96233c37712f29193b68ff",
-"surface_id": "<id:109>",
+"surface_id": "<id:106>",
 "target_contract_version_id": null,
 "target_support_hash": null
 },
-"surface_id": "<id:109>",
+"surface_id": "<id:106>",
 "target_contract_version_id": null,
 "target_support_hash": null
 }
@@ -6716,7 +6716,7 @@
 "added": [
 {
 "card_contract_hash": "fbb1adb514be5fb514faa0eca308b4e2",
-"card_id": "<id:110>",
+"card_id": "<id:107>",
 "contract_json": {
 "evidence_eligibility": {},
 "feedback_policy": {
@@ -6752,7 +6752,7 @@
 }
 },
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:106>",
+"id": "<id:103>",
 "legacy_contract_version_id": null,
 "lineage_kind": null,
 "predecessor_card_version_id": null,
@@ -6765,24 +6765,24 @@
 "added": [
 {
 "created_at": "2026-05-19T12:00:00Z",
-"family_id": "<id:107>",
-"id": "<id:110>"
+"family_id": "<id:104>",
+"id": "<id:107>"
 }
 ]
 },
 "activity_exposure_events": {
 "added": [
 {
-"administration_id": "<id:108>",
+"administration_id": "<id:105>",
 "consumes_unseen": 1,
 "created_at": "2026-05-19T12:00:00Z",
 "detail_json": null,
 "fingerprint": null,
-"id": "<id:111>",
+"id": "<id:108>",
 "kind": "rendered",
 "purpose": "diagnostic",
 "surface_hash": "bb404eacdf96233c37712f29193b68ff",
-"surface_id": "<id:109>"
+"surface_id": "<id:106>"
 }
 ]
 },
@@ -6790,7 +6790,7 @@
 "added": [
 {
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:107>",
+"id": "<id:104>",
 "legacy_kind": "probe",
 "purpose": "diagnostic",
 "title": "pi_svd_define_004"
@@ -6801,14 +6801,14 @@
 "added": [
 {
 "created_at": "2026-05-19T12:00:00Z",
-"family_id": "<id:107>",
+"family_id": "<id:104>",
 "family_spec_json": {
 "learning_object_id": "lo_svd_definition",
 "legacy_item_id": "pi_svd_define_004",
 "legacy_kind": "probe",
 "purpose": "diagnostic"
 },
-"id": "<id:112>",
+"id": "<id:109>",
 "version": 1
 }
 ]
@@ -6816,49 +6816,49 @@
 "activity_observations": {
 "added": [
 {
-"active_interpretation_id": "<id:113>",
-"administration_id": "<id:108>",
-"attempt_id": "<id:104>",
+"active_interpretation_id": "<id:110>",
+"administration_id": "<id:105>",
+"attempt_id": "<id:101>",
 "created_at": "2026-05-19T12:00:00Z",
 "eligibility_reason": "diagnostic_evidence",
 "evidence_eligibility": "diagnostic",
-"id": "<id:114>",
-"response_ref": "<id:104>",
-"surface_id": "<id:109>"
+"id": "<id:111>",
+"response_ref": "<id:101>",
+"surface_id": "<id:106>"
 }
 ]
 },
 "activity_surface_lifecycle_events": {
 "added": [
 {
-"administration_id": "<id:108>",
+"administration_id": "<id:105>",
 "created_at": "2026-05-19T12:00:00Z",
 "detail_json": null,
-"id": "<id:115>",
+"id": "<id:112>",
 "kind": "expose",
 "reason": null,
 "reservation_id": null,
-"surface_id": "<id:109>"
+"surface_id": "<id:106>"
 },
 {
-"administration_id": "<id:108>",
+"administration_id": "<id:105>",
 "created_at": "2026-05-19T12:00:00Z",
 "detail_json": null,
-"id": "<id:116>",
+"id": "<id:113>",
 "kind": "consume",
 "reason": null,
 "reservation_id": null,
-"surface_id": "<id:109>"
+"surface_id": "<id:106>"
 }
 ]
 },
 "activity_surfaces": {
 "added": [
 {
-"card_version_id": "<id:106>",
+"card_version_id": "<id:103>",
 "created_at": "2026-05-19T12:00:00Z",
 "fingerprint": null,
-"id": "<id:109>",
+"id": "<id:106>",
 "legacy_practice_item_id": "pi_svd_define_004",
 "legacy_surface_unverifiable": 0,
 "surface_hash": "bb404eacdf96233c37712f29193b68ff",
@@ -6915,7 +6915,7 @@
 "variant_contract": null
 },
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:117>",
+"id": "<id:114>",
 "practice_item_id": "pi_svd_define_004",
 "schema_version": 1
 }
@@ -6924,14 +6924,14 @@
 "attempt_completion_work": {
 "added": [
 {
-"attempt_id": "<id:104>",
+"attempt_id": "<id:101>",
 "collection_version": "learnloop-events-v1",
 "completed_at": null,
 "created_at": "2026-05-19T12:00:00Z",
 "practice_item_id": "pi_svd_define_004",
 "result_json": {
 "agent_run_id": null,
-"attempt_id": "<id:104>",
+"attempt_id": "<id:101>",
 "bayesian_surprise": 0.007997735468873168,
 "correctness": 0.25,
 "debug": {
@@ -7096,7 +7096,7 @@
 "id": "facet_uncertainty_lo_svd_definition_recall",
 "last_evidence_at": "2026-05-19T12:00:00Z",
 "learning_object_id": "lo_svd_definition",
-"opened_by_attempt_id": "<id:104>",
+"opened_by_attempt_id": "<id:101>",
 "opened_reason": "repeated_facet_failure",
 "status": "open",
 "uncertainty": 0.14755356002055023,
@@ -7200,7 +7200,7 @@
 "open_set": null,
 "released_feedback": [
 {
-"attempt_id": "<id:104>",
+"attempt_id": "<id:101>",
 "causal_feedback": {
 "causal_hypotheses": [],
 "contest_action": {
@@ -7231,7 +7231,7 @@
 },
 "proposed_next_action": null,
 "protected_targets": [],
-"receipt_id": "dr_<id:118>",
+"receipt_id": "dr_<id:115>",
 "repaired_trace": null,
 "repaired_trace_withheld_reason": null,
 "trace_consistency": {},
@@ -7266,7 +7266,7 @@
 "added": [
 {
 "algorithm_version": "mvp-0.21",
-"attempt_id": "<id:104>",
+"attempt_id": "<id:101>",
 "created_at": "2026-05-19T12:00:00Z",
 "payload_json": {
 "ability_transition": {
@@ -7288,7 +7288,7 @@
 "criterion_target_fill_count": 0,
 "diagnosis_present": false,
 "diagnosis_receipt": {
-"attempt_id": "<id:104>",
+"attempt_id": "<id:101>",
 "attribution_axes": [],
 "common_repair_cover": {
 "covers_plausible_set": false,
@@ -7319,7 +7319,7 @@
 "repair_insertion_point": null
 },
 "hypotheses": [],
-"id": "dr_<id:118>",
+"id": "dr_<id:115>",
 "mechanism_taxonomy_hash": null,
 "mechanism_taxonomy_version_id": null,
 "model_reported_support_proposals": {},
@@ -7372,7 +7372,7 @@
 },
 "diagnosis_receipts": [
 {
-"attempt_id": "<id:104>",
+"attempt_id": "<id:101>",
 "attribution_axes": [],
 "common_repair_cover": {
 "covers_plausible_set": false,
@@ -7403,7 +7403,7 @@
 "repair_insertion_point": null
 },
 "hypotheses": [],
-"id": "dr_<id:118>",
+"id": "dr_<id:115>",
 "mechanism_taxonomy_hash": null,
 "mechanism_taxonomy_version_id": null,
 "model_reported_support_proposals": {},
@@ -7598,7 +7598,7 @@
 "id": "facet_uncertainty_lo_svd_definition_recall",
 "last_evidence_at": "2026-05-19T12:00:00Z",
 "learning_object_id": "lo_svd_definition",
-"opened_by_attempt_id": "<id:104>",
+"opened_by_attempt_id": "<id:101>",
 "opened_reason": "repeated_facet_failure",
 "status": "open",
 "uncertainty": 0.14755356002055023,
@@ -7665,7 +7665,7 @@
 "added": [
 {
 "agent_run_id": null,
-"attempt_id": "<id:104>",
+"attempt_id": "<id:101>",
 "created_at": "2026-05-19T12:00:00Z",
 "fallback_reason": null,
 "fatal_errors_json": [],
@@ -7683,7 +7683,7 @@
 "added": [
 {
 "algorithm_version": "mvp-0.21",
-"attempt_id": "<id:104>",
+"attempt_id": "<id:101>",
 "epoch_key": "revision:0",
 "grading_revision": 0,
 "item_a": 1.0,
@@ -7696,7 +7696,7 @@
 "added": [
 {
 "algorithm_version": "mvp-0.21",
-"attempt_id": "<id:104>",
+"attempt_id": "<id:101>",
 "bayesian_surprise": 0.007997735468873168,
 "created_at": "2026-05-19T12:00:00Z",
 "fsrs_interval_factor": 0.9645539182667021,
@@ -7732,7 +7732,7 @@
 "causal_activity_classification_events": {
 "added": [
 {
-"attempt_id": "<id:104>",
+"attempt_id": "<id:101>",
 "closes_pre_intervention_segment": 0,
 "contamination_class": "pure_diagnostic",
 "created_at": "2026-05-19T12:00:00Z",
@@ -7746,11 +7746,11 @@
 "surface_group": null
 },
 "probe_episode_id": "<id:15>",
-"probe_presentation_id": "<id:119>"
+"probe_presentation_id": "<id:116>"
 },
 "eligible_for_certification": 0,
 "eligible_for_fsrs": 0,
-"id": "<id:120>",
+"id": "<id:117>",
 "near_clone": 0,
 "near_clone_basis": "no_source_item",
 "policy_version": "causal_activity_v1",
@@ -7766,7 +7766,7 @@
 "chosen_ref": "partial_credit",
 "created_at": "<wall>",
 "decided_by": "joint_grader",
-"detail_id": "<id:104>",
+"detail_id": "<id:101>",
 "detail_table": "practice_attempts",
 "error_type": null,
 "error_where": null,
@@ -7804,20 +7804,20 @@
 "plan_presentation_id": null,
 "practice_item_id": "pi_svd_define_004",
 "primed": false,
-"probe_presentation_id": "<id:119>",
+"probe_presentation_id": "<id:116>",
 "review_reason": null,
 "review_reason_ids": [],
 "rubric_score": 1.0,
 "session_id": "sess"
 },
-"id": "<id:121>",
+"id": "<id:118>",
 "kind": "grade",
 "parent_id": null,
 "rule": "partial_credit",
 "status": "chosen",
-"subject_id": "<id:104>",
+"subject_id": "<id:101>",
 "subject_kind": "attempt",
-"trace_id": "<id:122>",
+"trace_id": "<id:119>",
 "versions_json": {
 "algorithm_version": "mvp-0.21"
 }
@@ -7936,7 +7936,7 @@
 "grade_interpretations": {
 "added": [
 {
-"administration_id": "<id:108>",
+"administration_id": "<id:105>",
 "calibration_model_hash": "736155f19e0da91c4ddb1e09e1043882",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
 "certainty_discount": 0.6957788023483952,
@@ -7951,12 +7951,12 @@
 },
 "criterion_posteriors_json": null,
 "fallback_reason": null,
-"id": "<id:113>",
+"id": "<id:110>",
 "influence_flag": 0,
-"observation_id": "<id:114>",
+"observation_id": "<id:111>",
 "projection_algorithm_version": "grade_interpretation_v1",
 "quarantine_state": "active",
-"raw_grade_event_id": "<id:123>",
+"raw_grade_event_id": "<id:120>",
 "reference_prior_ids_json": [
 "01GCM0000098AA8E311D619BBB"
 ],
@@ -7974,8 +7974,8 @@
 "added": [
 {
 "agent_run_id": null,
-"assessment_contract_version_id": "<id:117>",
-"attempt_id": "<id:104>",
+"assessment_contract_version_id": "<id:114>",
+"attempt_id": "<id:101>",
 "attribution_json": null,
 "correlation_group": null,
 "created_at": "2026-05-19T12:00:00Z",
@@ -7983,11 +7983,11 @@
 "evidence": "Points given with the grade; no grader wrote evidence.",
 "grader_tier": 0,
 "grading_revision": 0,
-"id": "<id:124>",
+"id": "<id:101>:correctness:given_points",
 "learner_confidence": null,
 "local_grader_id": "given_points",
 "notes": null,
-"observation_id": "<id:104>:correctness:0",
+"observation_id": "<id:101>:correctness:0",
 "points_awarded": 1.0,
 "recipe_id": null,
 "superseded_at": null,
@@ -8025,7 +8025,7 @@
 "algorithm_version": "mvp-0.21",
 "created_at": "2026-05-19T12:00:00Z",
 "elapsed_seconds": 0,
-"id": "lol_<id:125>",
+"id": "lol_<id:121>",
 "intervening_attempt_count": 0,
 "label_type": "same_learning_object_transfer",
 "label_value": 0.25,
@@ -8033,7 +8033,7 @@
 "metadata_json": {
 "label_version": "learnloop-outcomes-v1",
 "outcome": {
-"attempt_id": "<id:104>",
+"attempt_id": "<id:101>",
 "attempt_type": "diagnostic_probe",
 "collection_version": "learnloop-events-v1",
 "correctness": 0.25,
@@ -8052,7 +8052,7 @@
 "session_id": "sess"
 },
 "source": {
-"attempt_id": "<id:70>",
+"attempt_id": "<id:68>",
 "attempt_type": "diagnostic_probe",
 "collection_version": "learnloop-events-v1",
 "correctness": 0.25,
@@ -8071,20 +8071,20 @@
 "session_id": "sess"
 }
 },
-"outcome_attempt_id": "<id:104>",
+"outcome_attempt_id": "<id:101>",
 "outcome_attempt_type": "diagnostic_probe",
 "outcome_correctness": 0.25,
 "outcome_hints_used": 0,
 "outcome_latency_seconds": null,
 "outcome_rubric_score": 1,
 "practice_item_id": "pi_svd_define_003",
-"source_attempt_id": "<id:70>"
+"source_attempt_id": "<id:68>"
 },
 {
 "algorithm_version": "mvp-0.21",
 "created_at": "2026-05-19T12:00:00Z",
 "elapsed_seconds": 0,
-"id": "lol_<id:126>",
+"id": "lol_<id:122>",
 "intervening_attempt_count": 0,
 "label_type": "same_learning_object_transfer",
 "label_value": 0.25,
@@ -8092,7 +8092,7 @@
 "metadata_json": {
 "label_version": "learnloop-outcomes-v1",
 "outcome": {
-"attempt_id": "<id:104>",
+"attempt_id": "<id:101>",
 "attempt_type": "diagnostic_probe",
 "collection_version": "learnloop-events-v1",
 "correctness": 0.25,
@@ -8111,7 +8111,7 @@
 "session_id": "sess"
 },
 "source": {
-"attempt_id": "<id:37>",
+"attempt_id": "<id:36>",
 "attempt_type": "diagnostic_probe",
 "collection_version": "learnloop-events-v1",
 "correctness": 0.25,
@@ -8130,20 +8130,20 @@
 "session_id": "sess"
 }
 },
-"outcome_attempt_id": "<id:104>",
+"outcome_attempt_id": "<id:101>",
 "outcome_attempt_type": "diagnostic_probe",
 "outcome_correctness": 0.25,
 "outcome_hints_used": 0,
 "outcome_latency_seconds": null,
 "outcome_rubric_score": 1,
 "practice_item_id": "pi_svd_define_002",
-"source_attempt_id": "<id:37>"
+"source_attempt_id": "<id:36>"
 },
 {
 "algorithm_version": "mvp-0.21",
 "created_at": "2026-05-19T12:00:00Z",
 "elapsed_seconds": 0,
-"id": "lol_<id:127>",
+"id": "lol_<id:123>",
 "intervening_attempt_count": 0,
 "label_type": "same_learning_object_transfer",
 "label_value": 0.25,
@@ -8151,7 +8151,7 @@
 "metadata_json": {
 "label_version": "learnloop-outcomes-v1",
 "outcome": {
-"attempt_id": "<id:104>",
+"attempt_id": "<id:101>",
 "attempt_type": "diagnostic_probe",
 "collection_version": "learnloop-events-v1",
 "correctness": 0.25,
@@ -8189,7 +8189,7 @@
 "session_id": "sess"
 }
 },
-"outcome_attempt_id": "<id:104>",
+"outcome_attempt_id": "<id:101>",
 "outcome_attempt_type": "diagnostic_probe",
 "outcome_correctness": 0.25,
 "outcome_hints_used": 0,
@@ -8203,58 +8203,58 @@
 "measurement_events": {
 "added": [
 {
-"administration_id": "<id:108>",
+"administration_id": "<id:105>",
 "algorithm_version": "mvp-0.6",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:128>",
+"id": "<id:124>",
 "kind": "administration_opened",
 "observation_id": null,
 "payload_json": null
 },
 {
-"administration_id": "<id:108>",
+"administration_id": "<id:105>",
 "algorithm_version": "mvp-0.6",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:129>",
+"id": "<id:125>",
 "kind": "response_appended",
-"observation_id": "<id:114>",
+"observation_id": "<id:111>",
 "payload_json": null
 },
 {
-"administration_id": "<id:108>",
+"administration_id": "<id:105>",
 "algorithm_version": "grade_interpretation_v1",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:130>",
+"id": "<id:126>",
 "kind": "raw_grade_appended",
-"observation_id": "<id:114>",
+"observation_id": "<id:111>",
 "payload_json": {
-"raw_grade_event_id": "<id:123>",
+"raw_grade_event_id": "<id:120>",
 "role": "primary"
 }
 },
 {
-"administration_id": "<id:108>",
+"administration_id": "<id:105>",
 "algorithm_version": "grade_classifier_response_v1",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:131>",
+"id": "<id:127>",
 "kind": "grade_classified",
-"observation_id": "<id:114>",
+"observation_id": "<id:111>",
 "payload_json": {
 "observed_class": "other",
 "unclassifiable": false
 }
 },
 {
-"administration_id": "<id:108>",
+"administration_id": "<id:105>",
 "algorithm_version": "grade_interpretation_v1",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:132>",
+"id": "<id:128>",
 "kind": "grade_interpreted",
-"observation_id": "<id:114>",
+"observation_id": "<id:111>",
 "payload_json": {
 "calibration_model_hash": "736155f19e0da91c4ddb1e09e1043882",
 "fallback_reason": null,
-"interpretation_id": "<id:113>",
+"interpretation_id": "<id:110>",
 "review_flag": false
 }
 }
@@ -8286,7 +8286,7 @@
 "first_hint_progress": null,
 "grader_confidence": 1.0,
 "hints_used": 0,
-"id": "<id:104>",
+"id": "<id:101>",
 "latency_seconds": null,
 "learner_answer_md": "answer",
 "learning_object_id": "lo_svd_definition",
@@ -8296,7 +8296,7 @@
 "practice_item_id": "pi_svd_define_004",
 "practice_mode": "short_answer",
 "primed": 0,
-"probe_presentation_id": "<id:119>",
+"probe_presentation_id": "<id:116>",
 "received_at": null,
 "received_at_source": null,
 "reference_status": "not_applicable",
@@ -8355,7 +8355,7 @@
 "changed": [
 {
 "after": {
-"active_state_segment_id": "<id:133>",
+"active_state_segment_id": "<id:129>",
 "algorithm_version": "mvp-0.21",
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
@@ -8372,7 +8372,7 @@
 "completion_reason": "observation_budget_exhausted",
 "created_at": "2026-05-19T12:00:00Z",
 "entered_at": "2026-05-19T12:00:00Z",
-"hypothesis_set_id": "<id:29>",
+"hypothesis_set_id": "<id:28>",
 "id": "<id:15>",
 "learning_object_id": "lo_svd_definition",
 "maximum_observations": 4,
@@ -8411,7 +8411,7 @@
 "updated_at": "2026-05-19T12:00:00Z"
 },
 "before": {
-"active_state_segment_id": "<id:98>",
+"active_state_segment_id": "<id:95>",
 "algorithm_version": "mvp-0.21",
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
@@ -8421,7 +8421,7 @@
 "completion_reason": null,
 "created_at": "2026-05-19T12:00:00Z",
 "entered_at": "2026-05-19T12:00:00Z",
-"hypothesis_set_id": "<id:29>",
+"hypothesis_set_id": "<id:28>",
 "id": "<id:15>",
 "learning_object_id": "lo_svd_definition",
 "maximum_observations": 4,
@@ -8449,7 +8449,7 @@
 "evidence_source": "real_learner",
 "generator_version": null,
 "grader_version": "diagnostic_microprobe_v1",
-"id": "<id:31>",
+"id": "<id:30>",
 "parameter_posterior_json": {
 "outcome_counts": {
 "other_or_unknown": {
@@ -8473,7 +8473,7 @@
 "evidence_source": "real_learner",
 "generator_version": null,
 "grader_version": "diagnostic_microprobe_v1",
-"id": "<id:31>",
+"id": "<id:30>",
 "parameter_posterior_json": {
 "outcome_counts": {
 "other_or_unknown": {
@@ -8501,7 +8501,7 @@
 "effective_sample_size": 0.9999999999999999,
 "evidence_source": "real_learner",
 "grader_version": "diagnostic_microprobe_v1",
-"id": "<id:134>",
+"id": "<id:130>",
 "parameter_posterior_json": {
 "outcome_counts": {
 "other_or_unknown": {
@@ -8526,7 +8526,7 @@
 "probe_observations": {
 "added": [
 {
-"attempt_id": "<id:104>",
+"attempt_id": "<id:101>",
 "contamination_json": null,
 "created_at": "2026-05-19T12:00:00Z",
 "eligible_for_completion": 1,
@@ -8537,7 +8537,7 @@
 "robust": {
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
-"decision_context_hash": "<id:135>",
+"decision_context_hash": "<id:131>",
 "ensemble_seed": 14942495649502224703,
 "mapping_version": "probe_coarse_v1",
 "observed_emission": "other|high",
@@ -8555,7 +8555,7 @@
 "grading_source": "ai",
 "observed_outcome": "other_systematic_error"
 },
-"id": "<id:136>",
+"id": "<id:132>",
 "independent_evidence_discount": 1.0,
 "posterior_after_json": {
 "other_or_unknown": 0.30890366735287955,
@@ -8583,7 +8583,7 @@
 "entropy_at_selection": 0.8990549812853743,
 "expected_information_gain": 0.027736961748085417,
 "expires_at": "2026-05-19T16:00:00Z",
-"id": "<id:119>",
+"id": "<id:116>",
 "instrument_card_id": "card_svd_contrast_more",
 "instrument_card_snapshot_json": {
 "card_id": "card_svd_contrast_more",
@@ -8680,7 +8680,7 @@
 "channel_pin": {
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
-"decision_context_hash": "<id:135>",
+"decision_context_hash": "<id:131>",
 "ensemble_seed": 14942495649502224703,
 "mapping_version": "probe_coarse_v1",
 "projection_algorithm_version": "mvp-0.21",
@@ -8696,7 +8696,7 @@
 },
 "selection_policy_version": "probe_episode_v2",
 "served_at": "2026-05-19T12:00:00Z",
-"state_segment_id": "<id:98>",
+"state_segment_id": "<id:95>",
 "status": "submitted",
 "submitted_at": "2026-05-19T12:00:00Z",
 "target_facets_json": [
@@ -8724,7 +8724,7 @@
 "added": [
 {
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:133>",
+"id": "<id:129>",
 "learning_object_id": "lo_svd_definition",
 "opened_by_attempt_id": null,
 "probe_episode_id": "<id:15>",
@@ -8736,9 +8736,9 @@
 "raw_grade_events": {
 "added": [
 {
-"administration_id": "<id:108>",
+"administration_id": "<id:105>",
 "agent_run_id": null,
-"attempt_id": "<id:104>",
+"attempt_id": "<id:101>",
 "confidence_bucket": "high",
 "context_features_json": {
 "domain": "lo_svd_definition",
@@ -8759,9 +8759,9 @@
 "grader_output_schema_version": "grading_proposal_v1",
 "grader_provider": "ai",
 "grading_prompt_version": "grading_prompt_v1",
-"id": "<id:123>",
+"id": "<id:120>",
 "model_confidence": 1.0,
-"observation_id": "<id:114>",
+"observation_id": "<id:111>",
 "observed_class": "other",
 "predecessor_event_id": null,
 "raw_output_json": {
@@ -8782,7 +8782,7 @@
 "rubric_score": 1
 },
 "response_classifier_version": "grade_classifier_response_v1",
-"response_ref": "<id:104>",
+"response_ref": "<id:101>",
 "role": "primary"
 }
 ]
@@ -8795,7 +8795,7 @@
 "chosen_practice_item_id": "pi_svd_define_004",
 "chosen_ref": "pi_svd_define_004",
 "created_at": "2026-05-19T12:00:00Z",
-"decision_ref": "<id:119>",
+"decision_ref": "<id:116>",
 "eig_nats": 0.027736961748085417,
 "evsi_lcb_minutes": null,
 "evsi_point_minutes": null,
@@ -8813,7 +8813,7 @@
 "channel_pin": {
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
-"decision_context_hash": "<id:135>",
+"decision_context_hash": "<id:131>",
 "ensemble_seed": 14942495649502224703,
 "mapping_version": "probe_coarse_v1",
 "projection_algorithm_version": "mvp-0.21",
@@ -8888,7 +8888,7 @@
 }
 },
 "forecast_version": "voi_forecast_v4",
-"id": "<id:137>",
+"id": "<id:133>",
 "learning_object_id": "lo_svd_definition",
 "p_action_change": 0.0,
 "parameters_json": [
@@ -8948,9 +8948,9 @@
 "value": 4
 }
 ],
-"presentation_id": "<id:119>",
+"presentation_id": "<id:116>",
 "probe_episode_id": "<id:15>",
-"receipt_key": "probe_selection:<id:119>",
+"receipt_key": "probe_selection:<id:116>",
 "scheduler_candidate_id": null,
 "site": "probe_selection",
 "source_attempt_id": null,
@@ -9001,7 +9001,7 @@
 "kind": "probe_selection"
 },
 "anchor": {
-"id": "<id:119>",
+"id": "<id:116>",
 "kind": "presentation"
 },
 "event_version": "voi_forecast_v4",
@@ -9028,7 +9028,7 @@
 "schema": "prediction_target/1",
 "unit": "emission"
 },
-"target_hash": "sha256:<id:138>",
+"target_hash": "sha256:<id:134>",
 "unversioned": [
 "resolver_version"
 ]
@@ -58104,7 +58104,7 @@
 "evidence": "Points given with the grade; no grader wrote evidence.",
 "grader_tier": 0,
 "grading_revision": 0,
-"id": "<id:59>",
+"id": "<id:1>:correctness:given_points",
 "learner_confidence": null,
 "local_grader_id": "given_points",
 "notes": null,
@@ -58155,7 +58155,7 @@
 "source_error_event_id": null
 }
 ],
-"id": "<id:60>",
+"id": "<id:59>",
 "learning_object_id": "lo_svd_definition",
 "prior_basis": null,
 "prior_json": {
@@ -58200,7 +58200,7 @@
 "administration_id": "<id:5>",
 "algorithm_version": "mvp-0.6",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:61>",
+"id": "<id:60>",
 "kind": "administration_opened",
 "observation_id": null,
 "payload_json": null
@@ -58209,7 +58209,7 @@
 "administration_id": "<id:5>",
 "algorithm_version": "mvp-0.6",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:62>",
+"id": "<id:61>",
 "kind": "response_appended",
 "observation_id": "<id:11>",
 "payload_json": null
@@ -58218,7 +58218,7 @@
 "administration_id": "<id:5>",
 "algorithm_version": "grade_interpretation_v1",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:63>",
+"id": "<id:62>",
 "kind": "raw_grade_appended",
 "observation_id": "<id:11>",
 "payload_json": {
@@ -58230,7 +58230,7 @@
 "administration_id": "<id:5>",
 "algorithm_version": "grade_classifier_response_v1",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:64>",
+"id": "<id:63>",
 "kind": "grade_classified",
 "observation_id": "<id:11>",
 "payload_json": {
@@ -58242,7 +58242,7 @@
 "administration_id": "<id:5>",
 "algorithm_version": "grade_interpretation_v1",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:65>",
+"id": "<id:64>",
 "kind": "grade_interpreted",
 "observation_id": "<id:11>",
 "payload_json": {
@@ -58261,7 +58261,7 @@
 "created_at": "2026-05-19T12:00:00Z",
 "has_signature_error": 0,
 "has_unanswered": 0,
-"id": "<id:66>",
+"id": "<id:65>",
 "observed_classes_json": [
 "success",
 "partial_success",
@@ -58285,7 +58285,7 @@
 "created_at": "2026-05-19T12:00:00Z",
 "has_signature_error": 0,
 "has_unanswered": 1,
-"id": "<id:67>",
+"id": "<id:66>",
 "observed_classes_json": [
 "success",
 "partial_success",
@@ -58312,7 +58312,7 @@
 "created_at": "2026-05-19T12:00:00Z",
 "has_signature_error": 1,
 "has_unanswered": 0,
-"id": "<id:68>",
+"id": "<id:67>",
 "observed_classes_json": [
 "success",
 "signature_error",
@@ -58336,7 +58336,7 @@
 "created_at": "2026-05-19T12:00:00Z",
 "has_signature_error": 0,
 "has_unanswered": 0,
-"id": "<id:69>",
+"id": "<id:68>",
 "observed_classes_json": [
 "full",
 "partial",
@@ -58469,7 +58469,7 @@
 "probe_episodes": {
 "added": [
 {
-"active_state_segment_id": "<id:70>",
+"active_state_segment_id": "<id:69>",
 "algorithm_version": "mvp-0.76",
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
@@ -58479,7 +58479,7 @@
 "completion_reason": null,
 "created_at": "2026-05-19T12:00:00Z",
 "entered_at": "2026-05-19T12:00:00Z",
-"hypothesis_set_id": "<id:60>",
+"hypothesis_set_id": "<id:59>",
 "id": "<id:18>",
 "learning_object_id": "lo_svd_definition",
 "maximum_observations": 4,
@@ -58505,7 +58505,7 @@
 "evidence_source": "real_learner",
 "generator_version": null,
 "grader_version": "diagnostic_microprobe_v1",
-"id": "<id:71>",
+"id": "<id:70>",
 "parameter_posterior_json": {
 "outcome_counts": {
 "other_or_unknown": {
@@ -58532,7 +58532,7 @@
 "effective_sample_size": 1.0,
 "evidence_source": "real_learner",
 "grader_version": "diagnostic_microprobe_v1",
-"id": "<id:72>",
+"id": "<id:71>",
 "parameter_posterior_json": {
 "outcome_counts": {
 "other_or_unknown": {
@@ -58569,7 +58569,7 @@
 "robust": {
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
-"decision_context_hash": "<id:73>",
+"decision_context_hash": "<id:72>",
 "ensemble_seed": 10291451180961944343,
 "mapping_version": "probe_coarse_v1",
 "observed_emission": "signature_error|high",
@@ -58587,7 +58587,7 @@
 "grading_source": "ai",
 "observed_outcome": "confusable_signature"
 },
-"id": "<id:74>",
+"id": "<id:73>",
 "independent_evidence_discount": 1.0,
 "posterior_after_json": {
 "other_or_unknown": 0.104146071160974,
@@ -58712,7 +58712,7 @@
 "channel_pin": {
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
-"decision_context_hash": "<id:73>",
+"decision_context_hash": "<id:72>",
 "ensemble_seed": 10291451180961944343,
 "mapping_version": "probe_coarse_v1",
 "projection_algorithm_version": "mvp-0.76",
@@ -58728,7 +58728,7 @@
 },
 "selection_policy_version": "probe_episode_v2",
 "served_at": "2026-05-19T12:00:00Z",
-"state_segment_id": "<id:70>",
+"state_segment_id": "<id:69>",
 "status": "submitted",
 "submitted_at": "2026-05-19T12:00:00Z",
 "target_facets_json": [
@@ -58756,7 +58756,7 @@
 "added": [
 {
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:70>",
+"id": "<id:69>",
 "learning_object_id": "lo_svd_definition",
 "opened_by_attempt_id": null,
 "probe_episode_id": "<id:18>",
@@ -58830,7 +58830,7 @@
 "<id:1>"
 ]
 ],
-"id": "<id:75>",
+"id": "<id:74>",
 "incomplete_reasons_json": [],
 "inputs_json": {
 "answers": {
@@ -58882,7 +58882,7 @@
 "channel_pin": {
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
-"decision_context_hash": "<id:73>",
+"decision_context_hash": "<id:72>",
 "ensemble_seed": 10291451180961944343,
 "mapping_version": "probe_coarse_v1",
 "projection_algorithm_version": "mvp-0.76",
@@ -58957,7 +58957,7 @@
 }
 },
 "forecast_version": "voi_forecast_v4",
-"id": "<id:76>",
+"id": "<id:75>",
 "learning_object_id": "lo_svd_definition",
 "p_action_change": 0.632612,
 "parameters_json": [
@@ -59097,7 +59097,7 @@
 "schema": "prediction_target/1",
 "unit": "emission"
 },
-"target_hash": "sha256:<id:77>",
+"target_hash": "sha256:<id:76>",
 "unversioned": [
 "resolver_version"
 ]
@@ -59119,7 +59119,7 @@
 "applied_to_belief_counts": 0,
 "applied_to_facet_recall": 0,
 "applied_to_mastery": 0,
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "created_at": "2026-05-19T12:00:00Z",
 "expected_skill_gain": 0.07,
 "learning_object_id": "lo_svd_definition",
@@ -59137,9 +59137,9 @@
 "added": [
 {
 "admin_context_json": null,
-"administration_snapshot_hash": "<id:79>",
+"administration_snapshot_hash": "<id:78>",
 "assistance_json": null,
-"card_version_id": "<id:80>",
+"card_version_id": "<id:79>",
 "created_at": "2026-05-19T12:00:00Z",
 "decision_params_hash": null,
 "eligibility_json": {
@@ -59148,10 +59148,10 @@
 "reason": "unseen_in_learnloop",
 "support_representative": true
 },
-"family_id": "<id:81>",
+"family_id": "<id:80>",
 "feedback_condition": null,
 "grader_model_version_id": null,
-"id": "<id:82>",
+"id": "<id:81>",
 "legacy_backfilled": 0,
 "purpose": "diagnostic",
 "reading_phase": null,
@@ -59160,7 +59160,7 @@
 "snapshot_json": {
 "assistance": null,
 "card_contract_hash": "3333f0a8d24c7545493c90e2617053ed",
-"card_version_id": "<id:80>",
+"card_version_id": "<id:79>",
 "context": {
 "goal_id": null,
 "purpose": "diagnostic"
@@ -59170,11 +59170,11 @@
 "grader_model_version_id": null,
 "selection_policy_version_id": null,
 "surface_hash": "bd8fdd69ca6c0a03563e3290583128fb",
-"surface_id": "<id:83>",
+"surface_id": "<id:82>",
 "target_contract_version_id": null,
 "target_support_hash": null
 },
-"surface_id": "<id:83>",
+"surface_id": "<id:82>",
 "target_contract_version_id": null,
 "target_support_hash": null
 }
@@ -59184,7 +59184,7 @@
 "added": [
 {
 "card_contract_hash": "3333f0a8d24c7545493c90e2617053ed",
-"card_id": "<id:84>",
+"card_id": "<id:83>",
 "contract_json": {
 "evidence_eligibility": {},
 "feedback_policy": {
@@ -59227,7 +59227,7 @@
 }
 },
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:80>",
+"id": "<id:79>",
 "legacy_contract_version_id": null,
 "lineage_kind": null,
 "predecessor_card_version_id": null,
@@ -59240,24 +59240,24 @@
 "added": [
 {
 "created_at": "2026-05-19T12:00:00Z",
-"family_id": "<id:81>",
-"id": "<id:84>"
+"family_id": "<id:80>",
+"id": "<id:83>"
 }
 ]
 },
 "activity_exposure_events": {
 "added": [
 {
-"administration_id": "<id:82>",
+"administration_id": "<id:81>",
 "consumes_unseen": 1,
 "created_at": "2026-05-19T12:00:00Z",
 "detail_json": null,
 "fingerprint": null,
-"id": "<id:85>",
+"id": "<id:84>",
 "kind": "rendered",
 "purpose": "diagnostic",
 "surface_hash": "bd8fdd69ca6c0a03563e3290583128fb",
-"surface_id": "<id:83>"
+"surface_id": "<id:82>"
 }
 ]
 },
@@ -59265,7 +59265,7 @@
 "added": [
 {
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:81>",
+"id": "<id:80>",
 "legacy_kind": "probe",
 "purpose": "diagnostic",
 "title": "pi_svd_define_002"
@@ -59276,14 +59276,14 @@
 "added": [
 {
 "created_at": "2026-05-19T12:00:00Z",
-"family_id": "<id:81>",
+"family_id": "<id:80>",
 "family_spec_json": {
 "learning_object_id": "lo_svd_definition",
 "legacy_item_id": "pi_svd_define_002",
 "legacy_kind": "probe",
 "purpose": "diagnostic"
 },
-"id": "<id:86>",
+"id": "<id:85>",
 "version": 1
 }
 ]
@@ -59291,49 +59291,49 @@
 "activity_observations": {
 "added": [
 {
-"active_interpretation_id": "<id:87>",
-"administration_id": "<id:82>",
-"attempt_id": "<id:78>",
+"active_interpretation_id": "<id:86>",
+"administration_id": "<id:81>",
+"attempt_id": "<id:77>",
 "created_at": "2026-05-19T12:00:00Z",
 "eligibility_reason": "diagnostic_evidence",
 "evidence_eligibility": "diagnostic",
-"id": "<id:88>",
-"response_ref": "<id:78>",
-"surface_id": "<id:83>"
+"id": "<id:87>",
+"response_ref": "<id:77>",
+"surface_id": "<id:82>"
 }
 ]
 },
 "activity_surface_lifecycle_events": {
 "added": [
 {
-"administration_id": "<id:82>",
+"administration_id": "<id:81>",
 "created_at": "2026-05-19T12:00:00Z",
 "detail_json": null,
-"id": "<id:89>",
+"id": "<id:88>",
 "kind": "expose",
 "reason": null,
 "reservation_id": null,
-"surface_id": "<id:83>"
+"surface_id": "<id:82>"
 },
 {
-"administration_id": "<id:82>",
+"administration_id": "<id:81>",
 "created_at": "2026-05-19T12:00:00Z",
 "detail_json": null,
-"id": "<id:90>",
+"id": "<id:89>",
 "kind": "consume",
 "reason": null,
 "reservation_id": null,
-"surface_id": "<id:83>"
+"surface_id": "<id:82>"
 }
 ]
 },
 "activity_surfaces": {
 "added": [
 {
-"card_version_id": "<id:80>",
+"card_version_id": "<id:79>",
 "created_at": "2026-05-19T12:00:00Z",
 "fingerprint": null,
-"id": "<id:83>",
+"id": "<id:82>",
 "legacy_practice_item_id": "pi_svd_define_002",
 "legacy_surface_unverifiable": 0,
 "surface_hash": "bd8fdd69ca6c0a03563e3290583128fb",
@@ -59398,7 +59398,7 @@
 "variant_contract": null
 },
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:91>",
+"id": "<id:90>",
 "practice_item_id": "pi_svd_define_002",
 "schema_version": 1
 }
@@ -59408,7 +59408,7 @@
 "added": [
 {
 "algorithm_version": "mvp-0.76",
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "basis": "applied",
 "recorded_at": "2026-05-19T12:00:00Z",
 "sequence": 2
@@ -59418,14 +59418,14 @@
 "attempt_completion_work": {
 "added": [
 {
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "collection_version": "learnloop-events-v1",
 "completed_at": "2026-05-19T12:00:00Z",
 "created_at": "2026-05-19T12:00:00Z",
 "practice_item_id": "pi_svd_define_002",
 "result_json": {
 "agent_run_id": null,
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "bayesian_surprise": 0.04402591081876828,
 "correctness": 0.25,
 "debug": {
@@ -59448,11 +59448,11 @@
 "criterion_target_fill_count": 0,
 "diagnosis_present": false,
 "diagnosis_receipt": {
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "attribution_axes": [
 {
 "cause_scope": "learner_state",
-"hypothesis_id": "<id:92>",
+"hypothesis_id": "<id:91>",
 "resolution_status": null,
 "target_ref": null,
 "version": 1
@@ -59464,7 +59464,7 @@
 {
 "basis": "hypothesis_target_unresolved",
 "covered": false,
-"hypothesis_id": "<id:92>",
+"hypothesis_id": "<id:91>",
 "repair_class_id": null,
 "target_ref": null
 }
@@ -59496,7 +59496,7 @@
 },
 "hypotheses": [
 {
-"id": "<id:92>",
+"id": "<id:91>",
 "repair_class_basis": "unresolved",
 "repair_class_id": null,
 "repair_class_unresolved_reason": "unlocalized_hypothesis",
@@ -59504,11 +59504,11 @@
 "version": 1
 }
 ],
-"id": "dr_<id:93>",
+"id": "dr_<id:92>",
 "mechanism_taxonomy_hash": null,
 "mechanism_taxonomy_version_id": null,
 "model_reported_support_proposals": {
-"<id:92>": null
+"<id:91>": null
 },
 "ordinal_ranking": [],
 "permitted_uses": [
@@ -59517,7 +59517,7 @@
 "probe_selection"
 ],
 "plausible_set": [
-"<id:92>"
+"<id:91>"
 ],
 "probe_decision": {
 "common_repair_cover": false,
@@ -59537,7 +59537,7 @@
 "repair_class_ranking": [],
 "repair_classes": [],
 "repair_mapping_gaps": {
-"<id:92>": "unlocalized_hypothesis"
+"<id:91>": "unlocalized_hypothesis"
 },
 "repair_policy_version": "structural_lexicographic_v2",
 "repair_selection": {
@@ -59550,14 +59550,14 @@
 "schema_version": 3,
 "support_authority": "unavailable_single_attempt",
 "support_scores": {
-"<id:92>": null
+"<id:91>": null
 },
 "trace_consistency": {
-"<id:92>": "no_deterministic_claims"
+"<id:91>": "no_deterministic_claims"
 },
 "trace_consistency_detail": {
 "by_hypothesis": {
-"<id:92>": {
+"<id:91>": {
 "claims_attributed": 0,
 "claims_checked": 0,
 "claims_unverifiable": 0,
@@ -59572,17 +59572,17 @@
 },
 "trace_consistent": true,
 "unmapped_hypothesis_ids": [
-"<id:92>"
+"<id:91>"
 ],
 "valid_targets": []
 },
 "diagnosis_receipts": [
 {
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "attribution_axes": [
 {
 "cause_scope": "learner_state",
-"hypothesis_id": "<id:92>",
+"hypothesis_id": "<id:91>",
 "resolution_status": null,
 "target_ref": null,
 "version": 1
@@ -59594,7 +59594,7 @@
 {
 "basis": "hypothesis_target_unresolved",
 "covered": false,
-"hypothesis_id": "<id:92>",
+"hypothesis_id": "<id:91>",
 "repair_class_id": null,
 "target_ref": null
 }
@@ -59626,7 +59626,7 @@
 },
 "hypotheses": [
 {
-"id": "<id:92>",
+"id": "<id:91>",
 "repair_class_basis": "unresolved",
 "repair_class_id": null,
 "repair_class_unresolved_reason": "unlocalized_hypothesis",
@@ -59634,11 +59634,11 @@
 "version": 1
 }
 ],
-"id": "dr_<id:93>",
+"id": "dr_<id:92>",
 "mechanism_taxonomy_hash": null,
 "mechanism_taxonomy_version_id": null,
 "model_reported_support_proposals": {
-"<id:92>": null
+"<id:91>": null
 },
 "ordinal_ranking": [],
 "permitted_uses": [
@@ -59647,7 +59647,7 @@
 "probe_selection"
 ],
 "plausible_set": [
-"<id:92>"
+"<id:91>"
 ],
 "probe_decision": {
 "common_repair_cover": false,
@@ -59667,7 +59667,7 @@
 "repair_class_ranking": [],
 "repair_classes": [],
 "repair_mapping_gaps": {
-"<id:92>": "unlocalized_hypothesis"
+"<id:91>": "unlocalized_hypothesis"
 },
 "repair_policy_version": "structural_lexicographic_v2",
 "repair_selection": {
@@ -59680,14 +59680,14 @@
 "schema_version": 3,
 "support_authority": "unavailable_single_attempt",
 "support_scores": {
-"<id:92>": null
+"<id:91>": null
 },
 "trace_consistency": {
-"<id:92>": "no_deterministic_claims"
+"<id:91>": "no_deterministic_claims"
 },
 "trace_consistency_detail": {
 "by_hypothesis": {
-"<id:92>": {
+"<id:91>": {
 "claims_attributed": 0,
 "claims_checked": 0,
 "claims_unverifiable": 0,
@@ -59702,7 +59702,7 @@
 },
 "trace_consistent": true,
 "unmapped_hypothesis_ids": [
-"<id:92>"
+"<id:91>"
 ],
 "valid_targets": []
 }
@@ -59954,7 +59954,7 @@
 },
 "due_at": null,
 "error_event_ids": [
-"<id:94>"
+"<id:93>"
 ],
 "fallback_reason": null,
 "fatal_errors": [],
@@ -59988,7 +59988,7 @@
 "added": [
 {
 "algorithm_version": "mvp-0.76",
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "created_at": "2026-05-19T12:00:00Z",
 "payload_json": {
 "ability_transition": {
@@ -60010,11 +60010,11 @@
 "criterion_target_fill_count": 0,
 "diagnosis_present": false,
 "diagnosis_receipt": {
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "attribution_axes": [
 {
 "cause_scope": "learner_state",
-"hypothesis_id": "<id:92>",
+"hypothesis_id": "<id:91>",
 "resolution_status": null,
 "target_ref": null,
 "version": 1
@@ -60026,7 +60026,7 @@
 {
 "basis": "hypothesis_target_unresolved",
 "covered": false,
-"hypothesis_id": "<id:92>",
+"hypothesis_id": "<id:91>",
 "repair_class_id": null,
 "target_ref": null
 }
@@ -60058,7 +60058,7 @@
 },
 "hypotheses": [
 {
-"id": "<id:92>",
+"id": "<id:91>",
 "repair_class_basis": "unresolved",
 "repair_class_id": null,
 "repair_class_unresolved_reason": "unlocalized_hypothesis",
@@ -60066,11 +60066,11 @@
 "version": 1
 }
 ],
-"id": "dr_<id:93>",
+"id": "dr_<id:92>",
 "mechanism_taxonomy_hash": null,
 "mechanism_taxonomy_version_id": null,
 "model_reported_support_proposals": {
-"<id:92>": null
+"<id:91>": null
 },
 "ordinal_ranking": [],
 "permitted_uses": [
@@ -60079,7 +60079,7 @@
 "probe_selection"
 ],
 "plausible_set": [
-"<id:92>"
+"<id:91>"
 ],
 "probe_decision": {
 "common_repair_cover": false,
@@ -60099,7 +60099,7 @@
 "repair_class_ranking": [],
 "repair_classes": [],
 "repair_mapping_gaps": {
-"<id:92>": "unlocalized_hypothesis"
+"<id:91>": "unlocalized_hypothesis"
 },
 "repair_policy_version": "structural_lexicographic_v2",
 "repair_selection": {
@@ -60112,14 +60112,14 @@
 "schema_version": 3,
 "support_authority": "unavailable_single_attempt",
 "support_scores": {
-"<id:92>": null
+"<id:91>": null
 },
 "trace_consistency": {
-"<id:92>": "no_deterministic_claims"
+"<id:91>": "no_deterministic_claims"
 },
 "trace_consistency_detail": {
 "by_hypothesis": {
-"<id:92>": {
+"<id:91>": {
 "claims_attributed": 0,
 "claims_checked": 0,
 "claims_unverifiable": 0,
@@ -60134,17 +60134,17 @@
 },
 "trace_consistent": true,
 "unmapped_hypothesis_ids": [
-"<id:92>"
+"<id:91>"
 ],
 "valid_targets": []
 },
 "diagnosis_receipts": [
 {
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "attribution_axes": [
 {
 "cause_scope": "learner_state",
-"hypothesis_id": "<id:92>",
+"hypothesis_id": "<id:91>",
 "resolution_status": null,
 "target_ref": null,
 "version": 1
@@ -60156,7 +60156,7 @@
 {
 "basis": "hypothesis_target_unresolved",
 "covered": false,
-"hypothesis_id": "<id:92>",
+"hypothesis_id": "<id:91>",
 "repair_class_id": null,
 "target_ref": null
 }
@@ -60188,7 +60188,7 @@
 },
 "hypotheses": [
 {
-"id": "<id:92>",
+"id": "<id:91>",
 "repair_class_basis": "unresolved",
 "repair_class_id": null,
 "repair_class_unresolved_reason": "unlocalized_hypothesis",
@@ -60196,11 +60196,11 @@
 "version": 1
 }
 ],
-"id": "dr_<id:93>",
+"id": "dr_<id:92>",
 "mechanism_taxonomy_hash": null,
 "mechanism_taxonomy_version_id": null,
 "model_reported_support_proposals": {
-"<id:92>": null
+"<id:91>": null
 },
 "ordinal_ranking": [],
 "permitted_uses": [
@@ -60209,7 +60209,7 @@
 "probe_selection"
 ],
 "plausible_set": [
-"<id:92>"
+"<id:91>"
 ],
 "probe_decision": {
 "common_repair_cover": false,
@@ -60229,7 +60229,7 @@
 "repair_class_ranking": [],
 "repair_classes": [],
 "repair_mapping_gaps": {
-"<id:92>": "unlocalized_hypothesis"
+"<id:91>": "unlocalized_hypothesis"
 },
 "repair_policy_version": "structural_lexicographic_v2",
 "repair_selection": {
@@ -60242,14 +60242,14 @@
 "schema_version": 3,
 "support_authority": "unavailable_single_attempt",
 "support_scores": {
-"<id:92>": null
+"<id:91>": null
 },
 "trace_consistency": {
-"<id:92>": "no_deterministic_claims"
+"<id:91>": "no_deterministic_claims"
 },
 "trace_consistency_detail": {
 "by_hypothesis": {
-"<id:92>": {
+"<id:91>": {
 "claims_attributed": 0,
 "claims_checked": 0,
 "claims_unverifiable": 0,
@@ -60264,7 +60264,7 @@
 },
 "trace_consistent": true,
 "unmapped_hypothesis_ids": [
-"<id:92>"
+"<id:91>"
 ],
 "valid_targets": []
 }
@@ -60521,7 +60521,7 @@
 "added": [
 {
 "agent_run_id": null,
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "created_at": "2026-05-19T12:00:00Z",
 "fallback_reason": null,
 "fatal_errors_json": [],
@@ -60539,7 +60539,7 @@
 "added": [
 {
 "algorithm_version": "mvp-0.76",
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "epoch_key": "revision:0",
 "grading_revision": 0,
 "item_a": 1.0,
@@ -60551,7 +60551,7 @@
 "attempt_lifecycle_inputs": {
 "added": [
 {
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "basis": "captured_at_application",
 "learning_object_id": "lo_svd_definition",
 "policy_version": "active_item_evidence_facets_v1",
@@ -60566,7 +60566,7 @@
 "added": [
 {
 "algorithm_version": "mvp-0.76",
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "bayesian_surprise": 0.04402591081876828,
 "created_at": "2026-05-19T12:00:00Z",
 "fsrs_interval_factor": 1.0,
@@ -60595,7 +60595,7 @@
 "p_ad": 0.2830125294151047,
 "p_scored": 0.2830125294151047,
 "prediction_source": "grade_receipt",
-"receipt_key": "item_unassisted_success_at_grade:graded_attempt:<id:78>:ad_threshold@grade",
+"receipt_key": "item_unassisted_success_at_grade:graded_attempt:<id:77>:ad_threshold@grade",
 "sigma_z": 0.44020974814335356
 },
 "predictive_surprise": 0.10124652241804692,
@@ -60610,7 +60610,7 @@
 "causal_activity_classification_events": {
 "added": [
 {
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "closes_pre_intervention_segment": 0,
 "contamination_class": "pure_diagnostic",
 "created_at": "2026-05-19T12:00:00Z",
@@ -60624,11 +60624,11 @@
 "surface_group": null
 },
 "probe_episode_id": "<id:18>",
-"probe_presentation_id": "<id:95>"
+"probe_presentation_id": "<id:94>"
 },
 "eligible_for_certification": 0,
 "eligible_for_fsrs": 0,
-"id": "<id:96>",
+"id": "<id:95>",
 "near_clone": 0,
 "near_clone_basis": "no_source_item",
 "policy_version": "causal_activity_v1",
@@ -60645,11 +60645,11 @@
 "practice_item_id": "pi_svd_define_002",
 "surface_family": "fresh_surface"
 },
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "cause_scope": "learner_state",
 "created_at": "2026-05-19T12:00:00Z",
-"episode_key": "<id:78>:event:<id:94>:ck_e0f3883193b52aa0a9c07d7c36",
-"error_event_id": "<id:94>",
+"episode_key": "<id:77>:event:<id:93>:ck_e0f3883193b52aa0a9c07d7c36",
+"error_event_id": "<id:93>",
 "evidence_json": {
 "diagnostic_sample_support": null,
 "discriminating_predictions": [],
@@ -60671,10 +60671,10 @@
 "prior_weight_raw": null,
 "resolution_status": null,
 "severity": 1.0,
-"source_error_event_id": "<id:94>"
+"source_error_event_id": "<id:93>"
 },
 "generation_agent_run_id": null,
-"id": "<id:92>",
+"id": "<id:91>",
 "learning_object_id": "lo_svd_definition",
 "mechanism": null,
 "model": null,
@@ -60699,7 +60699,7 @@
 "chosen_ref": "partial_credit",
 "created_at": "<wall>",
 "decided_by": "joint_grader",
-"detail_id": "<id:78>",
+"detail_id": "<id:77>",
 "detail_table": "practice_attempts",
 "error_type": null,
 "error_where": null,
@@ -60739,20 +60739,20 @@
 "plan_presentation_id": null,
 "practice_item_id": "pi_svd_define_002",
 "primed": false,
-"probe_presentation_id": "<id:95>",
+"probe_presentation_id": "<id:94>",
 "review_reason": null,
 "review_reason_ids": [],
 "rubric_score": 1.0,
 "session_id": null
 },
-"id": "<id:97>",
+"id": "<id:96>",
 "kind": "grade",
 "parent_id": null,
 "rule": "partial_credit",
 "status": "chosen",
-"subject_id": "<id:78>",
+"subject_id": "<id:77>",
 "subject_kind": "attempt",
-"trace_id": "<id:98>",
+"trace_id": "<id:97>",
 "versions_json": {
 "algorithm_version": "mvp-0.76"
 }
@@ -60762,10 +60762,10 @@
 "error_events": {
 "added": [
 {
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "created_at": "2026-05-19T12:00:00Z",
 "error_type": "conceptual_slip",
-"id": "<id:94>",
+"id": "<id:93>",
 "is_misconception": 1,
 "learning_object_id": "lo_svd_definition",
 "misconception_consistent_answer": null,
@@ -60927,7 +60927,7 @@
 "censor_reason": null,
 "created_at": "2026-05-19T12:00:00Z",
 "decision_kind": "grade",
-"decision_ref": "<id:78>",
+"decision_ref": "<id:77>",
 "event": "unassisted_success",
 "facet_id": null,
 "followup_task_id": null,
@@ -60957,11 +60957,11 @@
 "forecaster": "ad_threshold@grade",
 "forecaster_version": "ad-threshold-grade-v1:ad_priors_v1:ad_hyper_v1",
 "hypothesis_ref": null,
-"id": "<id:99>",
+"id": "<id:98>",
 "inputs_as_of": "2026-05-19T12:00:00Z",
-"inputs_hash": "<id:100>",
+"inputs_hash": "<id:99>",
 "inputs_json": {
-"events_fingerprint": "<id:101>",
+"events_fingerprint": "<id:100>",
 "features": {},
 "learning_object_id": "lo_svd_definition",
 "loadings": {},
@@ -60987,11 +60987,11 @@
 "plan_presentation_id": null,
 "practice_item_id": "pi_svd_define_002",
 "probe_presentation_id": null,
-"receipt_key": "item_unassisted_success_at_grade:graded_attempt:<id:78>:ad_threshold@grade",
+"receipt_key": "item_unassisted_success_at_grade:graded_attempt:<id:77>:ad_threshold@grade",
 "received_at": null,
 "scheduler_candidate_id": null,
 "scope": "attempt",
-"source_attempt_id": "<id:78>",
+"source_attempt_id": "<id:77>",
 "status": "ok",
 "versions_json": {
 "feature_schema": "p1_launch@1",
@@ -61059,7 +61059,7 @@
 },
 "source": {
 "ad_state_hash": "1c5b03f470af148c92ff0f2d50c5f4576cbeaefadd94916d860172bf3b0ec2ff",
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "item_revision": "235a97202a0d142836cab385c82b3e8c701c98abb0e59a2f575425c63f23d736",
 "protection_epoch": "8bc3a9ecfe5b0b45c6b12e36336eb35e4e9b9e4d343a585b969aa388fb874d56",
 "replay_version": "ad_replay_v1",
@@ -61103,11 +61103,11 @@
 "stated_by": "producer",
 "target": {
 "action": {
-"id": "<id:78>",
+"id": "<id:77>",
 "kind": "grade"
 },
 "anchor": {
-"id": "<id:78>",
+"id": "<id:77>",
 "kind": "graded_attempt"
 },
 "event_version": "ad_category:ad_priors_v1",
@@ -61146,7 +61146,7 @@
 "schema": "prediction_target/1",
 "unit": "ad_category3"
 },
-"target_hash": "sha256:<id:102>",
+"target_hash": "sha256:<id:101>",
 "unversioned": []
 }
 }
@@ -61157,7 +61157,7 @@
 "grade_interpretations": {
 "added": [
 {
-"administration_id": "<id:82>",
+"administration_id": "<id:81>",
 "calibration_model_hash": "736155f19e0da91c4ddb1e09e1043882",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
 "certainty_discount": 0.6957788023483952,
@@ -61172,12 +61172,12 @@
 },
 "criterion_posteriors_json": null,
 "fallback_reason": null,
-"id": "<id:87>",
+"id": "<id:86>",
 "influence_flag": 0,
-"observation_id": "<id:88>",
+"observation_id": "<id:87>",
 "projection_algorithm_version": "grade_interpretation_v1",
 "quarantine_state": "active",
-"raw_grade_event_id": "<id:103>",
+"raw_grade_event_id": "<id:102>",
 "reference_prior_ids_json": [
 "01GCM0000098AA8E311D619BBB"
 ],
@@ -61195,8 +61195,8 @@
 "added": [
 {
 "agent_run_id": null,
-"assessment_contract_version_id": "<id:91>",
-"attempt_id": "<id:78>",
+"assessment_contract_version_id": "<id:90>",
+"attempt_id": "<id:77>",
 "attribution_json": null,
 "correlation_group": null,
 "created_at": "2026-05-19T12:00:00Z",
@@ -61204,11 +61204,11 @@
 "evidence": "Points given with the grade; no grader wrote evidence.",
 "grader_tier": 0,
 "grading_revision": 0,
-"id": "<id:104>",
+"id": "<id:77>:correctness:given_points",
 "learner_confidence": null,
 "local_grader_id": "given_points",
 "notes": null,
-"observation_id": "<id:78>:correctness:0",
+"observation_id": "<id:77>:correctness:0",
 "points_awarded": 1.0,
 "recipe_id": null,
 "superseded_at": null,
@@ -61246,7 +61246,7 @@
 "algorithm_version": "mvp-0.76",
 "created_at": "2026-05-19T12:00:00Z",
 "elapsed_seconds": 0,
-"id": "lol_<id:105>",
+"id": "lol_<id:103>",
 "intervening_attempt_count": 0,
 "label_type": "same_learning_object_transfer",
 "label_value": 0.25,
@@ -61254,7 +61254,7 @@
 "metadata_json": {
 "label_version": "learnloop-outcomes-v1",
 "outcome": {
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "attempt_type": "diagnostic_probe",
 "collection_version": "learnloop-events-v1",
 "correctness": 0.25,
@@ -61292,7 +61292,7 @@
 "session_id": null
 }
 },
-"outcome_attempt_id": "<id:78>",
+"outcome_attempt_id": "<id:77>",
 "outcome_attempt_type": "diagnostic_probe",
 "outcome_correctness": 0.25,
 "outcome_hints_used": 0,
@@ -61306,58 +61306,58 @@
 "measurement_events": {
 "added": [
 {
-"administration_id": "<id:82>",
+"administration_id": "<id:81>",
 "algorithm_version": "mvp-0.6",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:106>",
+"id": "<id:104>",
 "kind": "administration_opened",
 "observation_id": null,
 "payload_json": null
 },
 {
-"administration_id": "<id:82>",
+"administration_id": "<id:81>",
 "algorithm_version": "mvp-0.6",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:107>",
+"id": "<id:105>",
 "kind": "response_appended",
-"observation_id": "<id:88>",
+"observation_id": "<id:87>",
 "payload_json": null
 },
 {
-"administration_id": "<id:82>",
+"administration_id": "<id:81>",
 "algorithm_version": "grade_interpretation_v1",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:108>",
+"id": "<id:106>",
 "kind": "raw_grade_appended",
-"observation_id": "<id:88>",
+"observation_id": "<id:87>",
 "payload_json": {
-"raw_grade_event_id": "<id:103>",
+"raw_grade_event_id": "<id:102>",
 "role": "primary"
 }
 },
 {
-"administration_id": "<id:82>",
+"administration_id": "<id:81>",
 "algorithm_version": "grade_classifier_response_v1",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:109>",
+"id": "<id:107>",
 "kind": "grade_classified",
-"observation_id": "<id:88>",
+"observation_id": "<id:87>",
 "payload_json": {
 "observed_class": "signature_error",
 "unclassifiable": false
 }
 },
 {
-"administration_id": "<id:82>",
+"administration_id": "<id:81>",
 "algorithm_version": "grade_interpretation_v1",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:110>",
+"id": "<id:108>",
 "kind": "grade_interpreted",
-"observation_id": "<id:88>",
+"observation_id": "<id:87>",
 "payload_json": {
 "calibration_model_hash": "736155f19e0da91c4ddb1e09e1043882",
 "fallback_reason": null,
-"interpretation_id": "<id:87>",
+"interpretation_id": "<id:86>",
 "review_flag": false
 }
 }
@@ -61389,7 +61389,7 @@
 "first_hint_progress": null,
 "grader_confidence": 1.0,
 "hints_used": 0,
-"id": "<id:78>",
+"id": "<id:77>",
 "latency_seconds": null,
 "learner_answer_md": "answer",
 "learning_object_id": "lo_svd_definition",
@@ -61399,7 +61399,7 @@
 "practice_item_id": "pi_svd_define_002",
 "practice_mode": "short_answer",
 "primed": 0,
-"probe_presentation_id": "<id:95>",
+"probe_presentation_id": "<id:94>",
 "received_at": null,
 "received_at_source": null,
 "reference_status": "not_applicable",
@@ -61449,7 +61449,7 @@
 "evidence_source": "real_learner",
 "generator_version": null,
 "grader_version": "diagnostic_microprobe_v1",
-"id": "<id:71>",
+"id": "<id:70>",
 "parameter_posterior_json": {
 "outcome_counts": {
 "other_or_unknown": {
@@ -61473,7 +61473,7 @@
 "evidence_source": "real_learner",
 "generator_version": null,
 "grader_version": "diagnostic_microprobe_v1",
-"id": "<id:71>",
+"id": "<id:70>",
 "parameter_posterior_json": {
 "outcome_counts": {
 "other_or_unknown": {
@@ -61501,7 +61501,7 @@
 "effective_sample_size": 1.0,
 "evidence_source": "real_learner",
 "grader_version": "diagnostic_microprobe_v1",
-"id": "<id:111>",
+"id": "<id:109>",
 "parameter_posterior_json": {
 "outcome_counts": {
 "other_or_unknown": {
@@ -61526,7 +61526,7 @@
 "probe_observations": {
 "added": [
 {
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "contamination_json": null,
 "created_at": "2026-05-19T12:00:00Z",
 "eligible_for_completion": 1,
@@ -61538,7 +61538,7 @@
 "robust": {
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
-"decision_context_hash": "<id:112>",
+"decision_context_hash": "<id:110>",
 "ensemble_seed": 13015070154694844922,
 "mapping_version": "probe_coarse_v1",
 "observed_emission": "signature_error|high",
@@ -61556,7 +61556,7 @@
 "grading_source": "ai",
 "observed_outcome": "confusable_signature"
 },
-"id": "<id:113>",
+"id": "<id:111>",
 "independent_evidence_discount": 1.0,
 "posterior_after_json": {
 "other_or_unknown": 0.1037341213204768,
@@ -61584,7 +61584,7 @@
 "entropy_at_selection": 1.2974429253723423,
 "expected_information_gain": 0.3605345099228294,
 "expires_at": "2026-05-19T16:00:00Z",
-"id": "<id:95>",
+"id": "<id:94>",
 "instrument_card_id": "card_svd_contrast",
 "instrument_card_snapshot_json": {
 "card_id": "card_svd_contrast",
@@ -61681,7 +61681,7 @@
 "channel_pin": {
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
-"decision_context_hash": "<id:112>",
+"decision_context_hash": "<id:110>",
 "ensemble_seed": 13015070154694844922,
 "mapping_version": "probe_coarse_v1",
 "projection_algorithm_version": "mvp-0.76",
@@ -61697,7 +61697,7 @@
 },
 "selection_policy_version": "probe_episode_v2",
 "served_at": "2026-05-19T12:00:00Z",
-"state_segment_id": "<id:70>",
+"state_segment_id": "<id:69>",
 "status": "submitted",
 "submitted_at": "2026-05-19T12:00:00Z",
 "target_facets_json": [
@@ -61724,9 +61724,9 @@
 "raw_grade_events": {
 "added": [
 {
-"administration_id": "<id:82>",
+"administration_id": "<id:81>",
 "agent_run_id": null,
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "confidence_bucket": "high",
 "context_features_json": {
 "domain": "lo_svd_definition",
@@ -61747,9 +61747,9 @@
 "grader_output_schema_version": "grading_proposal_v1",
 "grader_provider": "ai",
 "grading_prompt_version": "grading_prompt_v1",
-"id": "<id:103>",
+"id": "<id:102>",
 "model_confidence": 1.0,
-"observation_id": "<id:88>",
+"observation_id": "<id:87>",
 "observed_class": "signature_error",
 "predecessor_event_id": null,
 "raw_output_json": {
@@ -61770,7 +61770,7 @@
 "rubric_score": 1
 },
 "response_classifier_version": "grade_classifier_response_v1",
-"response_ref": "<id:78>",
+"response_ref": "<id:77>",
 "role": "primary"
 }
 ]
@@ -61783,15 +61783,15 @@
 "derived_from_json": [
 [
 "grading",
-"<id:78>"
+"<id:77>"
 ]
 ],
-"id": "<id:114>",
+"id": "<id:112>",
 "incomplete_reasons_json": [],
 "inputs_json": {
 "answers": {
-"<id:78>": [
-"<id:91>"
+"<id:77>": [
+"<id:90>"
 ]
 },
 "items": [
@@ -61806,7 +61806,7 @@
 },
 "kind": "hypothesis",
 "provenance_version": "write_provenance_v1",
-"record_id": "<id:92>",
+"record_id": "<id:91>",
 "text_sha256": "d40629e97c6ce60d0328caa5cab0d56723206b669066fcef9122938adbe7680f",
 "writer": "causal_materialization"
 }
@@ -61820,7 +61820,7 @@
 "chosen_practice_item_id": "pi_svd_define_002",
 "chosen_ref": "pi_svd_define_002",
 "created_at": "2026-05-19T12:00:00Z",
-"decision_ref": "<id:95>",
+"decision_ref": "<id:94>",
 "eig_nats": 0.3605345099228294,
 "evsi_lcb_minutes": null,
 "evsi_point_minutes": null,
@@ -61838,7 +61838,7 @@
 "channel_pin": {
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
-"decision_context_hash": "<id:112>",
+"decision_context_hash": "<id:110>",
 "ensemble_seed": 13015070154694844922,
 "mapping_version": "probe_coarse_v1",
 "projection_algorithm_version": "mvp-0.76",
@@ -61913,7 +61913,7 @@
 }
 },
 "forecast_version": "voi_forecast_v4",
-"id": "<id:115>",
+"id": "<id:113>",
 "learning_object_id": "lo_svd_definition",
 "p_action_change": 0.54836993,
 "parameters_json": [
@@ -61973,9 +61973,9 @@
 "value": 4
 }
 ],
-"presentation_id": "<id:95>",
+"presentation_id": "<id:94>",
 "probe_episode_id": "<id:18>",
-"receipt_key": "probe_selection:<id:95>",
+"receipt_key": "probe_selection:<id:94>",
 "scheduler_candidate_id": null,
 "site": "probe_selection",
 "source_attempt_id": null,
@@ -62026,7 +62026,7 @@
 "kind": "probe_selection"
 },
 "anchor": {
-"id": "<id:95>",
+"id": "<id:94>",
 "kind": "presentation"
 },
 "event_version": "voi_forecast_v4",
@@ -62053,7 +62053,7 @@
 "schema": "prediction_target/1",
 "unit": "emission"
 },
-"target_hash": "sha256:<id:116>",
+"target_hash": "sha256:<id:114>",
 "unversioned": [
 "resolver_version"
 ]
@@ -62073,7 +62073,7 @@
 {
 "after": {
 "algorithm_version": "mvp-0.76",
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "created_at": "2026-05-19T12:00:00Z",
 "payload_json": {
 "ability_transition": {
@@ -62095,11 +62095,11 @@
 "criterion_target_fill_count": 0,
 "diagnosis_present": false,
 "diagnosis_receipt": {
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "attribution_axes": [
 {
 "cause_scope": "learner_state",
-"hypothesis_id": "<id:117>",
+"hypothesis_id": "<id:115>",
 "resolution_status": null,
 "target_ref": null,
 "version": 3
@@ -62111,7 +62111,7 @@
 {
 "basis": "hypothesis_target_unresolved",
 "covered": false,
-"hypothesis_id": "<id:117>",
+"hypothesis_id": "<id:115>",
 "repair_class_id": null,
 "target_ref": null
 }
@@ -62143,7 +62143,7 @@
 },
 "hypotheses": [
 {
-"id": "<id:117>",
+"id": "<id:115>",
 "repair_class_basis": "unresolved",
 "repair_class_id": null,
 "repair_class_unresolved_reason": "unlocalized_hypothesis",
@@ -62151,11 +62151,11 @@
 "version": 3
 }
 ],
-"id": "dr_<id:118>",
+"id": "dr_<id:116>",
 "mechanism_taxonomy_hash": null,
 "mechanism_taxonomy_version_id": null,
 "model_reported_support_proposals": {
-"<id:117>": null
+"<id:115>": null
 },
 "ordinal_ranking": [],
 "permitted_uses": [
@@ -62164,7 +62164,7 @@
 "probe_selection"
 ],
 "plausible_set": [
-"<id:117>"
+"<id:115>"
 ],
 "probe_decision": {
 "common_repair_cover": false,
@@ -62184,7 +62184,7 @@
 "repair_class_ranking": [],
 "repair_classes": [],
 "repair_mapping_gaps": {
-"<id:117>": "unlocalized_hypothesis"
+"<id:115>": "unlocalized_hypothesis"
 },
 "repair_policy_version": "structural_lexicographic_v2",
 "repair_selection": {
@@ -62197,14 +62197,14 @@
 "schema_version": 3,
 "support_authority": "unavailable_single_attempt",
 "support_scores": {
-"<id:117>": null
+"<id:115>": null
 },
 "trace_consistency": {
-"<id:117>": "no_deterministic_claims"
+"<id:115>": "no_deterministic_claims"
 },
 "trace_consistency_detail": {
 "by_hypothesis": {
-"<id:117>": {
+"<id:115>": {
 "claims_attributed": 0,
 "claims_checked": 0,
 "claims_unverifiable": 0,
@@ -62219,17 +62219,17 @@
 },
 "trace_consistent": true,
 "unmapped_hypothesis_ids": [
-"<id:117>"
+"<id:115>"
 ],
 "valid_targets": []
 },
 "diagnosis_receipts": [
 {
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "attribution_axes": [
 {
 "cause_scope": "learner_state",
-"hypothesis_id": "<id:92>",
+"hypothesis_id": "<id:91>",
 "resolution_status": null,
 "target_ref": null,
 "version": 1
@@ -62241,7 +62241,7 @@
 {
 "basis": "hypothesis_target_unresolved",
 "covered": false,
-"hypothesis_id": "<id:92>",
+"hypothesis_id": "<id:91>",
 "repair_class_id": null,
 "target_ref": null
 }
@@ -62273,7 +62273,7 @@
 },
 "hypotheses": [
 {
-"id": "<id:92>",
+"id": "<id:91>",
 "repair_class_basis": "unresolved",
 "repair_class_id": null,
 "repair_class_unresolved_reason": "unlocalized_hypothesis",
@@ -62281,11 +62281,11 @@
 "version": 1
 }
 ],
-"id": "dr_<id:93>",
+"id": "dr_<id:92>",
 "mechanism_taxonomy_hash": null,
 "mechanism_taxonomy_version_id": null,
 "model_reported_support_proposals": {
-"<id:92>": null
+"<id:91>": null
 },
 "ordinal_ranking": [],
 "permitted_uses": [
@@ -62294,7 +62294,7 @@
 "probe_selection"
 ],
 "plausible_set": [
-"<id:92>"
+"<id:91>"
 ],
 "probe_decision": {
 "common_repair_cover": false,
@@ -62314,7 +62314,7 @@
 "repair_class_ranking": [],
 "repair_classes": [],
 "repair_mapping_gaps": {
-"<id:92>": "unlocalized_hypothesis"
+"<id:91>": "unlocalized_hypothesis"
 },
 "repair_policy_version": "structural_lexicographic_v2",
 "repair_selection": {
@@ -62327,14 +62327,14 @@
 "schema_version": 3,
 "support_authority": "unavailable_single_attempt",
 "support_scores": {
-"<id:92>": null
+"<id:91>": null
 },
 "trace_consistency": {
-"<id:92>": "no_deterministic_claims"
+"<id:91>": "no_deterministic_claims"
 },
 "trace_consistency_detail": {
 "by_hypothesis": {
-"<id:92>": {
+"<id:91>": {
 "claims_attributed": 0,
 "claims_checked": 0,
 "claims_unverifiable": 0,
@@ -62349,16 +62349,16 @@
 },
 "trace_consistent": true,
 "unmapped_hypothesis_ids": [
-"<id:92>"
+"<id:91>"
 ],
 "valid_targets": []
 },
 {
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "attribution_axes": [
 {
 "cause_scope": "learner_state",
-"hypothesis_id": "<id:117>",
+"hypothesis_id": "<id:115>",
 "resolution_status": null,
 "target_ref": null,
 "version": 3
@@ -62370,7 +62370,7 @@
 {
 "basis": "hypothesis_target_unresolved",
 "covered": false,
-"hypothesis_id": "<id:117>",
+"hypothesis_id": "<id:115>",
 "repair_class_id": null,
 "target_ref": null
 }
@@ -62402,7 +62402,7 @@
 },
 "hypotheses": [
 {
-"id": "<id:117>",
+"id": "<id:115>",
 "repair_class_basis": "unresolved",
 "repair_class_id": null,
 "repair_class_unresolved_reason": "unlocalized_hypothesis",
@@ -62410,11 +62410,11 @@
 "version": 3
 }
 ],
-"id": "dr_<id:118>",
+"id": "dr_<id:116>",
 "mechanism_taxonomy_hash": null,
 "mechanism_taxonomy_version_id": null,
 "model_reported_support_proposals": {
-"<id:117>": null
+"<id:115>": null
 },
 "ordinal_ranking": [],
 "permitted_uses": [
@@ -62423,7 +62423,7 @@
 "probe_selection"
 ],
 "plausible_set": [
-"<id:117>"
+"<id:115>"
 ],
 "probe_decision": {
 "common_repair_cover": false,
@@ -62443,7 +62443,7 @@
 "repair_class_ranking": [],
 "repair_classes": [],
 "repair_mapping_gaps": {
-"<id:117>": "unlocalized_hypothesis"
+"<id:115>": "unlocalized_hypothesis"
 },
 "repair_policy_version": "structural_lexicographic_v2",
 "repair_selection": {
@@ -62456,14 +62456,14 @@
 "schema_version": 3,
 "support_authority": "unavailable_single_attempt",
 "support_scores": {
-"<id:117>": null
+"<id:115>": null
 },
 "trace_consistency": {
-"<id:117>": "no_deterministic_claims"
+"<id:115>": "no_deterministic_claims"
 },
 "trace_consistency_detail": {
 "by_hypothesis": {
-"<id:117>": {
+"<id:115>": {
 "claims_attributed": 0,
 "claims_checked": 0,
 "claims_unverifiable": 0,
@@ -62478,7 +62478,7 @@
 },
 "trace_consistent": true,
 "unmapped_hypothesis_ids": [
-"<id:117>"
+"<id:115>"
 ],
 "valid_targets": []
 }
@@ -62731,7 +62731,7 @@
 },
 "before": {
 "algorithm_version": "mvp-0.76",
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "created_at": "2026-05-19T12:00:00Z",
 "payload_json": {
 "ability_transition": {
@@ -62753,11 +62753,11 @@
 "criterion_target_fill_count": 0,
 "diagnosis_present": false,
 "diagnosis_receipt": {
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "attribution_axes": [
 {
 "cause_scope": "learner_state",
-"hypothesis_id": "<id:92>",
+"hypothesis_id": "<id:91>",
 "resolution_status": null,
 "target_ref": null,
 "version": 1
@@ -62769,7 +62769,7 @@
 {
 "basis": "hypothesis_target_unresolved",
 "covered": false,
-"hypothesis_id": "<id:92>",
+"hypothesis_id": "<id:91>",
 "repair_class_id": null,
 "target_ref": null
 }
@@ -62801,7 +62801,7 @@
 },
 "hypotheses": [
 {
-"id": "<id:92>",
+"id": "<id:91>",
 "repair_class_basis": "unresolved",
 "repair_class_id": null,
 "repair_class_unresolved_reason": "unlocalized_hypothesis",
@@ -62809,11 +62809,11 @@
 "version": 1
 }
 ],
-"id": "dr_<id:93>",
+"id": "dr_<id:92>",
 "mechanism_taxonomy_hash": null,
 "mechanism_taxonomy_version_id": null,
 "model_reported_support_proposals": {
-"<id:92>": null
+"<id:91>": null
 },
 "ordinal_ranking": [],
 "permitted_uses": [
@@ -62822,7 +62822,7 @@
 "probe_selection"
 ],
 "plausible_set": [
-"<id:92>"
+"<id:91>"
 ],
 "probe_decision": {
 "common_repair_cover": false,
@@ -62842,7 +62842,7 @@
 "repair_class_ranking": [],
 "repair_classes": [],
 "repair_mapping_gaps": {
-"<id:92>": "unlocalized_hypothesis"
+"<id:91>": "unlocalized_hypothesis"
 },
 "repair_policy_version": "structural_lexicographic_v2",
 "repair_selection": {
@@ -62855,14 +62855,14 @@
 "schema_version": 3,
 "support_authority": "unavailable_single_attempt",
 "support_scores": {
-"<id:92>": null
+"<id:91>": null
 },
 "trace_consistency": {
-"<id:92>": "no_deterministic_claims"
+"<id:91>": "no_deterministic_claims"
 },
 "trace_consistency_detail": {
 "by_hypothesis": {
-"<id:92>": {
+"<id:91>": {
 "claims_attributed": 0,
 "claims_checked": 0,
 "claims_unverifiable": 0,
@@ -62877,17 +62877,17 @@
 },
 "trace_consistent": true,
 "unmapped_hypothesis_ids": [
-"<id:92>"
+"<id:91>"
 ],
 "valid_targets": []
 },
 "diagnosis_receipts": [
 {
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "attribution_axes": [
 {
 "cause_scope": "learner_state",
-"hypothesis_id": "<id:92>",
+"hypothesis_id": "<id:91>",
 "resolution_status": null,
 "target_ref": null,
 "version": 1
@@ -62899,7 +62899,7 @@
 {
 "basis": "hypothesis_target_unresolved",
 "covered": false,
-"hypothesis_id": "<id:92>",
+"hypothesis_id": "<id:91>",
 "repair_class_id": null,
 "target_ref": null
 }
@@ -62931,7 +62931,7 @@
 },
 "hypotheses": [
 {
-"id": "<id:92>",
+"id": "<id:91>",
 "repair_class_basis": "unresolved",
 "repair_class_id": null,
 "repair_class_unresolved_reason": "unlocalized_hypothesis",
@@ -62939,11 +62939,11 @@
 "version": 1
 }
 ],
-"id": "dr_<id:93>",
+"id": "dr_<id:92>",
 "mechanism_taxonomy_hash": null,
 "mechanism_taxonomy_version_id": null,
 "model_reported_support_proposals": {
-"<id:92>": null
+"<id:91>": null
 },
 "ordinal_ranking": [],
 "permitted_uses": [
@@ -62952,7 +62952,7 @@
 "probe_selection"
 ],
 "plausible_set": [
-"<id:92>"
+"<id:91>"
 ],
 "probe_decision": {
 "common_repair_cover": false,
@@ -62972,7 +62972,7 @@
 "repair_class_ranking": [],
 "repair_classes": [],
 "repair_mapping_gaps": {
-"<id:92>": "unlocalized_hypothesis"
+"<id:91>": "unlocalized_hypothesis"
 },
 "repair_policy_version": "structural_lexicographic_v2",
 "repair_selection": {
@@ -62985,14 +62985,14 @@
 "schema_version": 3,
 "support_authority": "unavailable_single_attempt",
 "support_scores": {
-"<id:92>": null
+"<id:91>": null
 },
 "trace_consistency": {
-"<id:92>": "no_deterministic_claims"
+"<id:91>": "no_deterministic_claims"
 },
 "trace_consistency_detail": {
 "by_hypothesis": {
-"<id:92>": {
+"<id:91>": {
 "claims_attributed": 0,
 "claims_checked": 0,
 "claims_unverifiable": 0,
@@ -63007,7 +63007,7 @@
 },
 "trace_consistent": true,
 "unmapped_hypothesis_ids": [
-"<id:92>"
+"<id:91>"
 ],
 "valid_targets": []
 }
@@ -63293,14 +63293,14 @@
 "prior_weight": 1.0,
 "prior_weight_basis": "uniform_no_weights",
 "prior_weight_raw": null,
-"promoted_misconception_id": "<id:119>",
+"promoted_misconception_id": "<id:117>",
 "promotion_reason": "independent_surface",
 "resolution_status": null,
 "severity": 1.0,
 "source_error_event_id": "<id:17>"
 },
 "generation_agent_run_id": null,
-"id": "<id:120>",
+"id": "<id:118>",
 "learning_object_id": "lo_svd_definition",
 "mechanism": null,
 "model": null,
@@ -63322,11 +63322,11 @@
 "practice_item_id": "pi_svd_define_002",
 "surface_family": "fresh_surface"
 },
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "cause_scope": "learner_state",
 "created_at": "2026-05-19T12:00:00Z",
-"episode_key": "<id:78>:event:<id:94>:ck_e0f3883193b52aa0a9c07d7c36",
-"error_event_id": "<id:94>",
+"episode_key": "<id:77>:event:<id:93>:ck_e0f3883193b52aa0a9c07d7c36",
+"error_event_id": "<id:93>",
 "evidence_json": {
 "diagnostic_sample_support": null,
 "discriminating_predictions": [],
@@ -63346,14 +63346,14 @@
 "prior_weight": 1.0,
 "prior_weight_basis": "uniform_no_weights",
 "prior_weight_raw": null,
-"promoted_misconception_id": "<id:119>",
+"promoted_misconception_id": "<id:117>",
 "promotion_reason": "independent_surface",
 "resolution_status": null,
 "severity": 1.0,
-"source_error_event_id": "<id:94>"
+"source_error_event_id": "<id:93>"
 },
 "generation_agent_run_id": null,
-"id": "<id:121>",
+"id": "<id:119>",
 "learning_object_id": "lo_svd_definition",
 "mechanism": null,
 "model": null,
@@ -63365,7 +63365,7 @@
 "statement": "The SVD is the same thing as the eigendecomposition.",
 "statement_normalized": "the svd is the same thing as the eigendecomposition",
 "status": "validated",
-"supersedes_id": "<id:92>",
+"supersedes_id": "<id:91>",
 "target_ref_json": null,
 "version": 2
 },
@@ -63375,11 +63375,11 @@
 "practice_item_id": "pi_svd_define_002",
 "surface_family": "fresh_surface"
 },
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "cause_scope": "learner_state",
 "created_at": "2026-05-19T12:00:00Z",
-"episode_key": "<id:78>:event:<id:94>:ck_e0f3883193b52aa0a9c07d7c36",
-"error_event_id": "<id:94>",
+"episode_key": "<id:77>:event:<id:93>:ck_e0f3883193b52aa0a9c07d7c36",
+"error_event_id": "<id:93>",
 "evidence_json": {
 "diagnostic_sample_support": null,
 "discriminating_predictions": [],
@@ -63401,10 +63401,10 @@
 "prior_weight_raw": null,
 "resolution_status": null,
 "severity": 1.0,
-"source_error_event_id": "<id:94>"
+"source_error_event_id": "<id:93>"
 },
 "generation_agent_run_id": null,
-"id": "<id:117>",
+"id": "<id:115>",
 "learning_object_id": "lo_svd_definition",
 "mechanism": null,
 "model": null,
@@ -63416,7 +63416,7 @@
 "statement": "The SVD is the same thing as the eigendecomposition.",
 "statement_normalized": "the svd is the same thing as the eigendecomposition",
 "status": "candidate",
-"supersedes_id": "<id:121>",
+"supersedes_id": "<id:119>",
 "target_ref_json": null,
 "version": 3
 }
@@ -63433,7 +63433,7 @@
 "is_misconception": 1,
 "learning_object_id": "lo_svd_definition",
 "misconception_consistent_answer": null,
-"misconception_id": "<id:119>",
+"misconception_id": "<id:117>",
 "misconception_statement": "The SVD is the same thing as the eigendecomposition.",
 "repair_plan_json": {
 "base_severity": 0.9
@@ -63462,14 +63462,14 @@
 },
 {
 "after": {
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "created_at": "2026-05-19T12:00:00Z",
 "error_type": "conceptual_slip",
-"id": "<id:94>",
+"id": "<id:93>",
 "is_misconception": 1,
 "learning_object_id": "lo_svd_definition",
 "misconception_consistent_answer": null,
-"misconception_id": "<id:119>",
+"misconception_id": "<id:117>",
 "misconception_statement": "The SVD is the same thing as the eigendecomposition.",
 "repair_plan_json": {
 "base_severity": 0.9
@@ -63479,10 +63479,10 @@
 "updated_at": "2026-05-19T12:00:00Z"
 },
 "before": {
-"attempt_id": "<id:78>",
+"attempt_id": "<id:77>",
 "created_at": "2026-05-19T12:00:00Z",
 "error_type": "conceptual_slip",
-"id": "<id:94>",
+"id": "<id:93>",
 "is_misconception": 1,
 "learning_object_id": "lo_svd_definition",
 "misconception_consistent_answer": null,
@@ -63516,8 +63516,8 @@
 {
 "at": "2026-05-19T12:00:00Z",
 "from_status": null,
-"id": "<id:122>",
-"misconception_id": "<id:119>",
+"id": "<id:120>",
+"misconception_id": "<id:117>",
 "source": "created",
 "to_status": "active"
 }
@@ -63534,7 +63534,7 @@
 "expected_signatures_json": [],
 "facet_ids_json": [],
 "first_divergence_json": [],
-"id": "<id:119>",
+"id": "<id:117>",
 "learning_object_id": "lo_svd_definition",
 "mechanism": "conceptual_slip",
 "non_applicable_controls_json": [],
@@ -63545,7 +63545,7 @@
 "signature": null,
 "source_error_event_ids_json": [
 "<id:17>",
-"<id:94>"
+"<id:93>"
 ],
 "statement": "The SVD is the same thing as the eigendecomposition.",
 "status": "active",
@@ -63559,7 +63559,7 @@
 "changed": [
 {
 "after": {
-"active_state_segment_id": "<id:123>",
+"active_state_segment_id": "<id:121>",
 "algorithm_version": "mvp-0.76",
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
@@ -63569,7 +63569,7 @@
 "completion_reason": "converted_to_tutoring",
 "created_at": "2026-05-19T12:00:00Z",
 "entered_at": "2026-05-19T12:00:00Z",
-"hypothesis_set_id": "<id:60>",
+"hypothesis_set_id": "<id:59>",
 "id": "<id:18>",
 "learning_object_id": "lo_svd_definition",
 "maximum_observations": 4,
@@ -63608,7 +63608,7 @@
 "updated_at": "2026-05-19T12:00:00Z"
 },
 "before": {
-"active_state_segment_id": "<id:70>",
+"active_state_segment_id": "<id:69>",
 "algorithm_version": "mvp-0.76",
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
@@ -63618,7 +63618,7 @@
 "completion_reason": null,
 "created_at": "2026-05-19T12:00:00Z",
 "entered_at": "2026-05-19T12:00:00Z",
-"hypothesis_set_id": "<id:60>",
+"hypothesis_set_id": "<id:59>",
 "id": "<id:18>",
 "learning_object_id": "lo_svd_definition",
 "maximum_observations": 4,
@@ -63642,7 +63642,7 @@
 "added": [
 {
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:123>",
+"id": "<id:121>",
 "learning_object_id": "lo_svd_definition",
 "opened_by_attempt_id": null,
 "probe_episode_id": "<id:18>",
@@ -63666,7 +63666,7 @@
 "<id:1>"
 ]
 ],
-"id": "<id:124>",
+"id": "<id:122>",
 "incomplete_reasons_json": [],
 "inputs_json": {
 "answers": {
@@ -63686,7 +63686,7 @@
 },
 "kind": "misconception",
 "provenance_version": "write_provenance_v1",
-"record_id": "<id:119>",
+"record_id": "<id:117>",
 "text_sha256": "d40629e97c6ce60d0328caa5cab0d56723206b669066fcef9122938adbe7680f",
 "writer": "promotion"
 },
@@ -63703,7 +63703,7 @@
 "<id:1>"
 ]
 ],
-"id": "<id:125>",
+"id": "<id:123>",
 "incomplete_reasons_json": [],
 "inputs_json": {
 "answers": {
@@ -63723,7 +63723,7 @@
 },
 "kind": "hypothesis",
 "provenance_version": "write_provenance_v1",
-"record_id": "<id:120>",
+"record_id": "<id:118>",
 "text_sha256": "d40629e97c6ce60d0328caa5cab0d56723206b669066fcef9122938adbe7680f",
 "writer": "causal_hypothesis_version"
 },
@@ -63733,19 +63733,19 @@
 "derived_from_json": [
 [
 "hypothesis",
-"<id:92>"
+"<id:91>"
 ],
 [
 "grading",
-"<id:78>"
+"<id:77>"
 ]
 ],
-"id": "<id:126>",
+"id": "<id:124>",
 "incomplete_reasons_json": [],
 "inputs_json": {
 "answers": {
-"<id:78>": [
-"<id:91>"
+"<id:77>": [
+"<id:90>"
 ]
 },
 "items": [
@@ -63760,7 +63760,7 @@
 },
 "kind": "hypothesis",
 "provenance_version": "write_provenance_v1",
-"record_id": "<id:121>",
+"record_id": "<id:119>",
 "text_sha256": "d40629e97c6ce60d0328caa5cab0d56723206b669066fcef9122938adbe7680f",
 "writer": "causal_hypothesis_version"
 },
@@ -63770,15 +63770,15 @@
 "derived_from_json": [
 [
 "grading",
-"<id:78>"
+"<id:77>"
 ]
 ],
-"id": "<id:127>",
+"id": "<id:125>",
 "incomplete_reasons_json": [],
 "inputs_json": {
 "answers": {
-"<id:78>": [
-"<id:91>"
+"<id:77>": [
+"<id:90>"
 ]
 },
 "items": [
@@ -63793,7 +63793,7 @@
 },
 "kind": "hypothesis",
 "provenance_version": "write_provenance_v1",
-"record_id": "<id:117>",
+"record_id": "<id:115>",
 "text_sha256": "d40629e97c6ce60d0328caa5cab0d56723206b669066fcef9122938adbe7680f",
 "writer": "causal_materialization"
 }
@@ -88490,7 +88490,7 @@
 "evidence": "Points given with the grade; no grader wrote evidence.",
 "grader_tier": 0,
 "grading_revision": 0,
-"id": "<id:66>",
+"id": "<id:45>:correctness:given_points",
 "learner_confidence": null,
 "local_grader_id": "given_points",
 "notes": null,
@@ -88547,7 +88547,7 @@
 "administration_id": "<id:49>",
 "algorithm_version": "mvp-0.6",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:67>",
+"id": "<id:66>",
 "kind": "administration_opened",
 "observation_id": null,
 "payload_json": null
@@ -88556,7 +88556,7 @@
 "administration_id": "<id:49>",
 "algorithm_version": "mvp-0.6",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:68>",
+"id": "<id:67>",
 "kind": "response_appended",
 "observation_id": "<id:55>",
 "payload_json": null
@@ -88565,7 +88565,7 @@
 "administration_id": "<id:49>",
 "algorithm_version": "grade_interpretation_v1",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:69>",
+"id": "<id:68>",
 "kind": "raw_grade_appended",
 "observation_id": "<id:55>",
 "payload_json": {
@@ -88577,7 +88577,7 @@
 "administration_id": "<id:49>",
 "algorithm_version": "grade_classifier_response_v1",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:70>",
+"id": "<id:69>",
 "kind": "grade_classified",
 "observation_id": "<id:55>",
 "payload_json": {
@@ -88589,7 +88589,7 @@
 "administration_id": "<id:49>",
 "algorithm_version": "grade_interpretation_v1",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:71>",
+"id": "<id:70>",
 "kind": "grade_interpreted",
 "observation_id": "<id:55>",
 "payload_json": {
@@ -88683,7 +88683,7 @@
 "changed": [
 {
 "after": {
-"active_state_segment_id": "<id:72>",
+"active_state_segment_id": "<id:71>",
 "algorithm_version": "mvp-0.76",
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
@@ -89089,7 +89089,7 @@
 "evidence_source": "real_learner",
 "generator_version": null,
 "grader_version": "diagnostic_microprobe_v1",
-"id": "<id:73>",
+"id": "<id:72>",
 "parameter_posterior_json": {
 "outcome_counts": {
 "other_or_unknown": {
@@ -89116,7 +89116,7 @@
 "effective_sample_size": 1.0,
 "evidence_source": "real_learner",
 "grader_version": "diagnostic_microprobe_v1",
-"id": "<id:74>",
+"id": "<id:73>",
 "parameter_posterior_json": {
 "outcome_counts": {
 "other_or_unknown": {
@@ -89171,7 +89171,7 @@
 "grading_source": "ai",
 "observed_outcome": "other_systematic_error"
 },
-"id": "<id:75>",
+"id": "<id:74>",
 "independent_evidence_discount": 1.0,
 "posterior_after_json": {
 "other_or_unknown": 0.20488252573146756,
@@ -89512,7 +89512,7 @@
 "added": [
 {
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:72>",
+"id": "<id:71>",
 "learning_object_id": "lo_svd_definition",
 "opened_by_attempt_id": null,
 "probe_episode_id": "<id:35>",
@@ -90030,7 +90030,7 @@
 }
 },
 "forecast_version": "voi_forecast_v4",
-"id": "<id:76>",
+"id": "<id:75>",
 "learning_object_id": "lo_svd_definition",
 "p_action_change": 0.09124651,
 "parameters_json": [
@@ -90206,7 +90206,7 @@
 "schema": "prediction_target/1",
 "unit": "emission"
 },
-"target_hash": "sha256:<id:77>",
+"target_hash": "sha256:<id:76>",
 "unversioned": [
 "resolver_version"
 ]
@@ -90265,13 +90265,13 @@
 "activity_observations": {
 "added": [
 {
-"active_interpretation_id": "<id:78>",
+"active_interpretation_id": "<id:77>",
 "administration_id": "<id:49>",
 "attempt_id": "<id:45>",
 "created_at": "2026-05-19T13:00:00Z",
 "eligibility_reason": "diagnostic_evidence",
 "evidence_eligibility": "diagnostic",
-"id": "<id:79>",
+"id": "<id:78>",
 "response_ref": "<id:45>",
 "surface_id": "<id:50>"
 }
@@ -90287,8 +90287,8 @@
 "error_message": null,
 "est_input_tokens": 0,
 "est_output_tokens": 0,
-"id": "<id:80>",
-"input_context_hash": "<id:81>",
+"id": "<id:79>",
+"input_context_hash": "<id:80>",
 "model": "fake-model",
 "output_schema": "BlindGradingProposal",
 "prompt_template": "grading",
@@ -91207,12 +91207,12 @@
 "blind_grade_records": {
 "added": [
 {
-"agent_run_id": "<id:80>",
+"agent_run_id": "<id:79>",
 "attempt_id": "<id:45>",
-"context_hash": "<id:81>",
+"context_hash": "<id:80>",
 "created_at": "2026-05-19T13:00:00Z",
 "grading_prompt_version": "mvp-2.1-blind-reference-policy+own-route-v2",
-"id": "<id:82>",
+"id": "<id:81>",
 "output_schema_version": "blind_grading_proposal_v1",
 "record_json": {
 "attribution_audit_events": [],
@@ -91301,11 +91301,11 @@
 "entity_id": "pi_svd_define_001",
 "entity_type": "practice_item",
 "event_type": "regrade_disagreement",
-"id": "<id:83>",
+"id": "<id:82>",
 "origin": "ai",
 "review_status": "accepted",
 "subject": "linear-algebra",
-"summary": "Deferred regrade changed rubric_score from 1 to 4; old evidence <id:66>; new evidence <id:84>."
+"summary": "Deferred regrade changed rubric_score from 1 to 4; old evidence <id:45>:correctness:given_points; new evidence <id:83>."
 }
 ]
 },
@@ -91316,26 +91316,26 @@
 "chosen_ref": null,
 "created_at": "<wall>",
 "decided_by": "post_attempt_jobs",
-"detail_id": "<id:85>",
+"detail_id": "<id:84>",
 "detail_table": "post_attempt_jobs",
 "error_type": null,
 "error_where": null,
 "facts_json": {
 "attempt_id": "<id:45>",
-"blind_grade_record_id": "<id:82>",
+"blind_grade_record_id": "<id:81>",
 "job_kind": "diagnose",
 "mode": "live",
 "queue": "post_attempt_jobs",
 "rediagnose": true
 },
-"id": "<id:86>",
+"id": "<id:85>",
 "kind": "job_enqueued",
 "parent_id": null,
 "rule": "regraded",
 "status": "deferred",
-"subject_id": "<id:85>",
+"subject_id": "<id:84>",
 "subject_kind": "job",
-"trace_id": "<id:87>",
+"trace_id": "<id:86>",
 "versions_json": {}
 },
 {
@@ -91348,7 +91348,7 @@
 "error_type": null,
 "error_where": null,
 "facts_json": {
-"agent_run_id": "<id:80>",
+"agent_run_id": "<id:79>",
 "attempt_type": "diagnostic_probe",
 "correctness": 1.0,
 "error_types": [],
@@ -91370,14 +91370,14 @@
 "rubric_score": 4.0,
 "session_id": null
 },
-"id": "<id:88>",
+"id": "<id:87>",
 "kind": "grade",
 "parent_id": null,
 "rule": "full_credit",
 "status": "chosen",
 "subject_id": "<id:45>",
 "subject_kind": "attempt",
-"trace_id": "<id:89>",
+"trace_id": "<id:88>",
 "versions_json": {
 "algorithm_version": "mvp-0.76",
 "grading_prompt_version": "mvp-2.1-blind-reference-policy+own-route-v2",
@@ -91544,12 +91544,12 @@
 },
 "criterion_posteriors_json": null,
 "fallback_reason": null,
-"id": "<id:78>",
+"id": "<id:77>",
 "influence_flag": 0,
-"observation_id": "<id:79>",
+"observation_id": "<id:78>",
 "projection_algorithm_version": "grade_interpretation_v1",
 "quarantine_state": "active",
-"raw_grade_event_id": "<id:90>",
+"raw_grade_event_id": "<id:89>",
 "reference_prior_ids_json": [
 "01GCM0000098AA8E311D619BBB"
 ],
@@ -91566,7 +91566,7 @@
 "grading_evidence": {
 "added": [
 {
-"agent_run_id": "<id:80>",
+"agent_run_id": "<id:79>",
 "assessment_contract_version_id": "<id:58>",
 "attempt_id": "<id:45>",
 "attribution_json": null,
@@ -91576,7 +91576,7 @@
 "evidence": "graded",
 "grader_tier": 3,
 "grading_revision": 1,
-"id": "<id:84>",
+"id": "<id:83>",
 "learner_confidence": null,
 "local_grader_id": null,
 "notes": null,
@@ -91600,7 +91600,7 @@
 "evidence": "Points given with the grade; no grader wrote evidence.",
 "grader_tier": 0,
 "grading_revision": 0,
-"id": "<id:66>",
+"id": "<id:45>:correctness:given_points",
 "learner_confidence": null,
 "local_grader_id": "given_points",
 "notes": null,
@@ -91608,7 +91608,7 @@
 "points_awarded": 1.0,
 "recipe_id": null,
 "superseded_at": "2026-05-19T13:00:00Z",
-"superseded_by_evidence_id": "<id:84>"
+"superseded_by_evidence_id": "<id:83>"
 },
 "before": {
 "agent_run_id": null,
@@ -91621,7 +91621,7 @@
 "evidence": "Points given with the grade; no grader wrote evidence.",
 "grader_tier": 0,
 "grading_revision": 0,
-"id": "<id:66>",
+"id": "<id:45>:correctness:given_points",
 "learner_confidence": null,
 "local_grader_id": "given_points",
 "notes": null,
@@ -91638,8 +91638,8 @@
 "added": [
 {
 "created_at": "2026-05-19T13:00:00Z",
-"id": "<id:91>",
-"input_hash": "<id:81>",
+"id": "<id:90>",
+"input_hash": "<id:80>",
 "judge": "llm",
 "judge_model": "fake-model",
 "left_id": "<id:45>",
@@ -91685,20 +91685,20 @@
 "administration_id": "<id:49>",
 "algorithm_version": "mvp-0.6",
 "created_at": "2026-05-19T13:00:00Z",
-"id": "<id:92>",
+"id": "<id:91>",
 "kind": "response_appended",
-"observation_id": "<id:79>",
+"observation_id": "<id:78>",
 "payload_json": null
 },
 {
 "administration_id": "<id:49>",
 "algorithm_version": "grade_interpretation_v1",
 "created_at": "2026-05-19T13:00:00Z",
-"id": "<id:93>",
+"id": "<id:92>",
 "kind": "raw_grade_appended",
-"observation_id": "<id:79>",
+"observation_id": "<id:78>",
 "payload_json": {
-"raw_grade_event_id": "<id:90>",
+"raw_grade_event_id": "<id:89>",
 "role": "primary"
 }
 },
@@ -91706,9 +91706,9 @@
 "administration_id": "<id:49>",
 "algorithm_version": "grade_classifier_response_v1",
 "created_at": "2026-05-19T13:00:00Z",
-"id": "<id:94>",
+"id": "<id:93>",
 "kind": "grade_classified",
-"observation_id": "<id:79>",
+"observation_id": "<id:78>",
 "payload_json": {
 "observed_class": "success",
 "unclassifiable": false
@@ -91718,13 +91718,13 @@
 "administration_id": "<id:49>",
 "algorithm_version": "grade_interpretation_v1",
 "created_at": "2026-05-19T13:00:00Z",
-"id": "<id:95>",
+"id": "<id:94>",
 "kind": "grade_interpreted",
-"observation_id": "<id:79>",
+"observation_id": "<id:78>",
 "payload_json": {
 "calibration_model_hash": "736155f19e0da91c4ddb1e09e1043882",
 "fallback_reason": null,
-"interpretation_id": "<id:78>",
+"interpretation_id": "<id:77>",
 "review_flag": false
 }
 }
@@ -91737,8 +91737,8 @@
 "attempt_count": 0,
 "attempt_id": "<id:45>",
 "created_at": "2026-05-19T13:00:00Z",
-"id": "<id:85>",
-"job_key": "<id:45>:<id:82>",
+"id": "<id:84>",
+"job_key": "<id:45>:<id:81>",
 "kind": "diagnose",
 "last_error": null,
 "lease_epoch": 0,
@@ -91746,7 +91746,7 @@
 "lease_owner": null,
 "not_before": null,
 "payload_json": {
-"blind_grade_record_id": "<id:82>",
+"blind_grade_record_id": "<id:81>",
 "mode": "live",
 "rediagnose": true
 },
@@ -91905,9 +91905,9 @@
 "grader_output_schema_version": "blind_grading_proposal_v1",
 "grader_provider": "ai",
 "grading_prompt_version": "grading_prompt_v2_1_blind_reference_policy+own-route-v2",
-"id": "<id:90>",
+"id": "<id:89>",
 "model_confidence": 0.9,
-"observation_id": "<id:79>",
+"observation_id": "<id:78>",
 "observed_class": "success",
 "predecessor_event_id": null,
 "raw_output_json": {
@@ -91939,7 +91939,7 @@
 "complete": 1,
 "created_at": "2026-05-19T13:00:00Z",
 "derived_from_json": [],
-"id": "<id:96>",
+"id": "<id:95>",
 "incomplete_reasons_json": [],
 "inputs_json": {
 "answers": {
@@ -102712,7 +102712,7 @@
 "evidence": "Points given with the grade; no grader wrote evidence.",
 "grader_tier": 0,
 "grading_revision": 0,
-"id": "<id:22>",
+"id": "<id:1>:correctness:given_points",
 "learner_confidence": null,
 "local_grader_id": "given_points",
 "notes": null,
@@ -102754,7 +102754,7 @@
 "administration_id": "<id:5>",
 "algorithm_version": "mvp-0.6",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:23>",
+"id": "<id:22>",
 "kind": "administration_opened",
 "observation_id": null,
 "payload_json": null
@@ -102763,7 +102763,7 @@
 "administration_id": "<id:5>",
 "algorithm_version": "mvp-0.6",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:24>",
+"id": "<id:23>",
 "kind": "response_appended",
 "observation_id": "<id:11>",
 "payload_json": null
@@ -102772,7 +102772,7 @@
 "administration_id": "<id:5>",
 "algorithm_version": "grade_interpretation_v1",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:25>",
+"id": "<id:24>",
 "kind": "raw_grade_appended",
 "observation_id": "<id:11>",
 "payload_json": {
@@ -102784,7 +102784,7 @@
 "administration_id": "<id:5>",
 "algorithm_version": "grade_classifier_response_v1",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:26>",
+"id": "<id:25>",
 "kind": "grade_classified",
 "observation_id": "<id:11>",
 "payload_json": {
@@ -102796,7 +102796,7 @@
 "administration_id": "<id:5>",
 "algorithm_version": "grade_interpretation_v1",
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:27>",
+"id": "<id:26>",
 "kind": "grade_interpreted",
 "observation_id": "<id:11>",
 "payload_json": {
@@ -102903,7 +102903,7 @@
 "changed": [
 {
 "after": {
-"active_state_segment_id": "<id:28>",
+"active_state_segment_id": "<id:27>",
 "algorithm_version": "mvp-0.21",
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
@@ -103349,7 +103349,7 @@
 "completion_reason": "value_of_information_stop",
 "created_at": "2026-05-19T12:00:00Z",
 "entered_at": "2026-05-19T12:00:00Z",
-"hypothesis_set_id": "<id:29>",
+"hypothesis_set_id": "<id:28>",
 "id": "<id:15>",
 "learning_object_id": "lo_svd_definition",
 "maximum_observations": 4,
@@ -103388,7 +103388,7 @@
 "updated_at": "2026-05-19T12:00:00Z"
 },
 "before": {
-"active_state_segment_id": "<id:30>",
+"active_state_segment_id": "<id:29>",
 "algorithm_version": "mvp-0.21",
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
@@ -103398,7 +103398,7 @@
 "completion_reason": null,
 "created_at": "2026-05-19T12:00:00Z",
 "entered_at": "2026-05-19T12:00:00Z",
-"hypothesis_set_id": "<id:29>",
+"hypothesis_set_id": "<id:28>",
 "id": "<id:15>",
 "learning_object_id": "lo_svd_definition",
 "maximum_observations": 4,
@@ -103425,7 +103425,7 @@
 "evidence_source": "real_learner",
 "generator_version": null,
 "grader_version": "diagnostic_microprobe_v1",
-"id": "<id:31>",
+"id": "<id:30>",
 "parameter_posterior_json": {
 "outcome_counts": {
 "other_or_unknown": {
@@ -103452,7 +103452,7 @@
 "effective_sample_size": 1.0,
 "evidence_source": "real_learner",
 "grader_version": "diagnostic_microprobe_v1",
-"id": "<id:32>",
+"id": "<id:31>",
 "parameter_posterior_json": {
 "outcome_counts": {
 "other_or_unknown": {
@@ -103488,7 +103488,7 @@
 "robust": {
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
-"decision_context_hash": "<id:33>",
+"decision_context_hash": "<id:32>",
 "ensemble_seed": 6426911546238252575,
 "mapping_version": "probe_coarse_v1",
 "observed_emission": "other|high",
@@ -103506,7 +103506,7 @@
 "grading_source": "ai",
 "observed_outcome": "other_systematic_error"
 },
-"id": "<id:34>",
+"id": "<id:33>",
 "independent_evidence_discount": 1.0,
 "posterior_after_json": {
 "other_or_unknown": 0.20488252573146756,
@@ -103631,7 +103631,7 @@
 "channel_pin": {
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
-"decision_context_hash": "<id:33>",
+"decision_context_hash": "<id:32>",
 "ensemble_seed": 6426911546238252575,
 "mapping_version": "probe_coarse_v1",
 "projection_algorithm_version": "mvp-0.21",
@@ -103647,7 +103647,7 @@
 },
 "selection_policy_version": "probe_episode_v2",
 "served_at": "2026-05-19T12:00:00Z",
-"state_segment_id": "<id:30>",
+"state_segment_id": "<id:29>",
 "status": "submitted",
 "submitted_at": "2026-05-19T12:00:00Z",
 "target_facets_json": [
@@ -103675,7 +103675,7 @@
 "added": [
 {
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:28>",
+"id": "<id:27>",
 "learning_object_id": "lo_svd_definition",
 "opened_by_attempt_id": null,
 "probe_episode_id": "<id:15>",
@@ -103764,7 +103764,7 @@
 "channel_pin": {
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
-"decision_context_hash": "<id:33>",
+"decision_context_hash": "<id:32>",
 "ensemble_seed": 6426911546238252575,
 "mapping_version": "probe_coarse_v1",
 "projection_algorithm_version": "mvp-0.21",
@@ -103839,7 +103839,7 @@
 }
 },
 "forecast_version": "voi_forecast_v4",
-"id": "<id:35>",
+"id": "<id:34>",
 "learning_object_id": "lo_svd_definition",
 "p_action_change": 0.632612,
 "parameters_json": [
@@ -103979,7 +103979,7 @@
 "schema": "prediction_target/1",
 "unit": "emission"
 },
-"target_hash": "sha256:<id:36>",
+"target_hash": "sha256:<id:35>",
 "unversioned": [
 "resolver_version"
 ]
@@ -104584,7 +104584,7 @@
 }
 },
 "forecast_version": "voi_forecast_v4",
-"id": "<id:37>",
+"id": "<id:36>",
 "learning_object_id": "lo_svd_definition",
 "p_action_change": 0.09124651,
 "parameters_json": [
@@ -104760,7 +104760,7 @@
 "schema": "prediction_target/1",
 "unit": "emission"
 },
-"target_hash": "sha256:<id:38>",
+"target_hash": "sha256:<id:37>",
 "unversioned": [
 "resolver_version"
 ]

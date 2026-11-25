@@ -5,8 +5,6 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Any
 
-from learnloop.ids import new_ulid
-
 # The provenance of evidence rows the door records for a live grade that gave criterion points and no rows. Tier 0 is
 # no grader's tier (self 1, deterministic 2, model 3, adjudication 4), so these rows are never counted as model-graded
 # or superseded as a self-grade, and the local grader id names the door.
@@ -27,7 +25,8 @@ def given_points_as_evidence(attempt: Any, now_iso: str) -> Any:
         return attempt
     rows: list[dict[str, object]] = [
         {
-            "id": new_ulid(),
+            # Derived from the attempt, never minted: two runs of one journey record the same rows.
+            "id": f"{attempt.attempt_id}:{criterion_id}:{GIVEN_POINTS_LOCAL_GRADER_ID}",
             "criterion_id": criterion_id,
             "points_awarded": float(points),
             "evidence": "Points given with the grade; no grader wrote evidence.",
