@@ -205,3 +205,30 @@ def test_a_nodes_forecast_is_allocated_after_the_nodes_landed_before_it():
     assert _landed_before(state, "n1") == []
     assert _landed_before(state, "n2") == [{"id": "n1", "lo_id": "lo_n1"}]
     assert _landed_before(state, "n3") == [{"id": "n1", "lo_id": "lo_n1"}, {"id": "n2", "lo_id": "lo_n2"}]
+
+
+def test_a_retention_forecasts_item_answered_before_commitment_is_marked_on_the_commitment(tmp_path):
+    """Review round 4, R4-S12 (FR3-15's residue): the node's check weighed its mass against the retention forecast of
+    item X (``cold_reference``); X is answered elsewhere (the phone) before the lesson closes, so the commitment's
+    allocation excludes it and commits another item. The check's recorded mass stands (it entered mastery), and the
+    commitment's entry names the forecast's item and the mismatch (failed before: nothing said the forecast was of
+    another item)."""
+
+    from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+    from learnloop.teacher import checks as CK
+
+    _paths, repository, vault = _vault(tmp_path, version=OUTCOME_FIXES_ALGORITHM_VERSION, pi_a=0.5, pi_b=0.5,
+                                       pi_mid=0.5)
+    nodes = [{"id": "n1", "lo_id": "lo_eigen"}]
+    reference = CK.cold_reference(vault, repository, "lo_eigen", lesson_id="les_one", exclude=[], lesson_item_ids=[],
+                                  node_id="n1", prior_nodes=[])
+    complete_self_graded_attempt(vault, repository, AttemptDraft(reference["item_id"], "answered on the phone"),
+                                 SelfGradeInput({"correctness": 1}, 3), clock=FrozenClock(parse_utc(NOW)))
+    out, warnings = D.commit_checks(
+        vault, repository, lesson_id="les_one", landed=nodes, goal_learning_object_ids=["lo_eigen"],
+        lesson_items_by_lo={}, shown_items=[], forecast_items={"n1": reference["item_id"]},
+        clock=FrozenClock(parse_utc(NOW)))
+    [retention] = [check for check in out if check["purpose"] == "retention"]
+    assert retention["item_id"] != reference["item_id"]
+    assert retention["forecast_item_id"] == reference["item_id"] and retention["forecast_item_mismatch"] is True
+    assert any("forecast" in warning for warning in warnings)

@@ -142,6 +142,9 @@ The successor of mvp-0.75 for the review-round-3 fixes that change what is deriv
 - R4-S11 (FR3-3's residue): a sitting answer's first grade stands against a second grader, the stored link is never
   cleared, and finish applies an answer only with the grade it read. Test:
   `tests/test_exam_finish_doors.py::test_a_second_grade_of_the_same_answer_neither_replaces_the_first_nor_clears_its_link`.
+- R4-S12 (FR3-15's residue): when a check's retention forecast item is answered before the lesson closes and the
+  commitment commits another item, the receipt's entry records the forecast's item and the mismatch (the mass stands).
+  Test: `tests/test_data_capture_a6_delayed_pick.py::test_a_retention_forecasts_item_answered_before_commitment_is_marked_on_the_commitment`.
 
 ## Pins and goldens
 

@@ -178,10 +178,13 @@ def retention_picks(vault: Any, repository: Any, *, lesson_id: str, nodes: Seque
 def commit_checks(vault: Any, repository: Any, *, lesson_id: str, landed: Sequence[Mapping[str, Any]],
                   goal_learning_object_ids: Sequence[str], lesson_items_by_lo: Mapping[str, Sequence[str]],
                   shown_items: Iterable[str], taught_learning_objects: Sequence[str] = (),
+                  forecast_items: Mapping[str, str] | None = None,
                   clock: Clock | None = None) -> tuple[list[dict[str, Any]], list[str]]:
     """Commit one retention check per landed node with an LO and one transfer check; returns
     ``(delayed_checks, warnings)`` for the receipt. ``shown_items``: the lesson's own check items and
-    the vault items it showed (excluded with their lineage)."""
+    the vault items it showed (excluded with their lineage). ``forecast_items``: per node, the cold item its
+    check's retention forecast (``checks.cold_reference``) named; when the allocation commits another (the item was
+    answered meanwhile), the entry records the forecast's item and the mismatch (the check's mass stands)."""
 
     from learnloop.curriculum import commitments as C
     from learnloop.learner_protection import withheld_items
@@ -272,6 +275,12 @@ def commit_checks(vault: Any, repository: Any, *, lesson_id: str, landed: Sequen
         )
         out.append({"purpose": purpose, "node_id": node_id, "learning_object_id": lo, "item_id": item.id,
                     "commitment_id": commitment.id, "due": due, "dated_by": basis, "days": round(days, 3), **picked})
+    for entry in out:
+        forecast = (forecast_items or {}).get(str(entry["node_id"])) if entry["purpose"] == "retention" else None
+        if forecast and forecast != entry["item_id"]:
+            entry.update(forecast_item_id=forecast, forecast_item_mismatch=True)
+            warnings.append(f"the retention forecast of a check on {entry['learning_object_id']} named another "
+                            "item, answered before the lesson closed")
     return out, warnings
 
 

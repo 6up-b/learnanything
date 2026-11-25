@@ -2488,8 +2488,13 @@ def _close(vault: Any, repository: Any, state: LessonState, *, reason: str, reca
         lo = state.node_lo(node_id)
         landed.append({"id": node_id, "lo_id": lo})
     lesson_items_by_lo: dict[str, list[str]] = {}
+    forecast_items: dict[str, str] = {}
     for row in rows:
         lesson_items_by_lo.setdefault(row["learning_object_id"], []).append(row["minted_item_id"])
+        # The cold item each node's latest answered check weighed its mass against (its retention forecast's).
+        named = (((row.get("weight_inputs") or {}).get("pool") or {}).get("reference") or {}).get("item_id")
+        if row["status"] == "answered" and named:
+            forecast_items[str(row["node_id"])] = str(named)
     shown = D.shown_vault_items(loaded, displayed_texts(state, extra=[recap] if recap else []))
     delayed_checks: list[dict[str, Any]] = []
     warnings: list[str] = []
@@ -2501,7 +2506,8 @@ def _close(vault: Any, repository: Any, state: LessonState, *, reason: str, reca
                 loaded, repository, lesson_id=state.lesson_id, landed=landed,
                 goal_learning_object_ids=(state.brief.get("goal") or {}).get("learning_object_ids") or [],
                 lesson_items_by_lo=lesson_items_by_lo, shown_items=[*state.minted.values(), *shown],
-                taught_learning_objects=[node["lo_id"] for node in landed if node.get("lo_id")], clock=clock)
+                taught_learning_objects=[node["lo_id"] for node in landed if node.get("lo_id")],
+                forecast_items=forecast_items, clock=clock)
         if T2.lesson_te2(state):
             # TE2: an unanswered probe is retired unused with its lesson (its job skipped, its item never served);
             # a gap's and an added topic's episodes close with their outcome.
