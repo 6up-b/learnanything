@@ -162,3 +162,25 @@ def test_from_the_label_retirement_the_flag_persists_nothing(tmp_path):
     vault, repository = _vault_with_flag(tmp_path, enabled=True, version=LABEL_RETIRED_ALGORITHM_VERSION)
     _attempt(vault, repository, at=NOW)
     assert repository.item_parameter_state("pi_svd_define_001") is None
+
+
+def test_from_the_label_retirement_no_reader_fetches_the_empirical_difficulty_rows(tmp_path, monkeypatch):
+    """The seam discards an empirical difficulty from the retirement's tag, so placement, the delayed check's pick and
+    the grade no longer read the rows at all."""
+
+    from learnloop.algorithm_versions import LABEL_RETIRED_ALGORITHM_VERSION
+    from learnloop.db.repositories import Repository
+    from learnloop.placement.predictor import LiveMasteryPredictor
+
+    vault, repository = _vault_with_flag(tmp_path, True, version=LABEL_RETIRED_ALGORITHM_VERSION)
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("an empirical difficulty row was read at the retirement's tag")
+
+    monkeypatch.setattr(Repository, "item_parameter_states", forbidden)
+    monkeypatch.setattr(Repository, "item_parameter_state", forbidden)
+    LiveMasteryPredictor(vault, repository)
+    from learnloop import delayed_checks
+
+    item = next(iter(vault.practice_items.values()))
+    delayed_checks.predicted_item_success(vault, repository, item)

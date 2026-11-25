@@ -276,3 +276,17 @@ def test_an_answer_dated_before_recorded_evidence_gets_no_grade_time_forecast(se
         SelfGradeInput(criterion_points={"correctness": 3}, confidence=3), clock=FrozenClock(NOW - timedelta(days=1)))
     assert result.attempt_id not in _grade_receipts(repository)
     assert _surprise(repository)[result.attempt_id]["dist"]["prediction_source"] == "mastery"
+
+
+def test_a_joint_update_reports_its_kl_as_unmeasured_not_zero():
+    """The opt-in rating or timing replay updates each grid point jointly: its information is not the KL, so the
+    trace says the KL is unmeasured instead of reporting the weights' part (zero with one grid point) as the whole."""
+
+    import numpy as np
+
+    from learnloop.adaptive_difficulty import model as M
+    from learnloop.adaptive_difficulty.replay import observation_kl
+
+    record = M.UpdateRecord(np.zeros(1), np.ones(1), np.ones(1), np.full(1, 0.5), np.ones((1, 3)) / 3, np.zeros(1),
+                            np.zeros(1), rank_one=False)
+    assert observation_kl(None, record) == {"unsupported": "joint_update"}

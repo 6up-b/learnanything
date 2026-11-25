@@ -15,6 +15,8 @@ import hashlib
 from collections.abc import Iterable, Sequence
 from typing import Any
 
+from learnloop.algorithm_versions import label_retired
+
 #: The receipt's shape and the picker's rule (data capture A6).
 PICK_VERSION = "delayed_pick_v2"
 #: Numerical resolution, never a margin: equal predictions differ by no more than float noise.
@@ -103,8 +105,11 @@ def predicted_item_success(vault: Any, repository: Any, item: Any) -> float | No
     from learnloop.learner.mastery import initial_mastery_state_for_learning_object, resolve_item_irt_params
 
     learning_object = vault.learning_objects.get(item.learning_object_id)
-    a, b = resolve_item_irt_params(item, learning_object, vault.config.mastery, repository.item_parameter_state(item.id),
-                                   algorithm_version=vault.config.algorithms.algorithm_version)
+    version = vault.config.algorithms.algorithm_version
+    # From the label's retirement the seam reads no empirical difficulty: the row is not fetched.
+    a, b = resolve_item_irt_params(item, learning_object, vault.config.mastery,
+                                   None if label_retired(version) else repository.item_parameter_state(item.id),
+                                   algorithm_version=version)
     state = repository.mastery_state(item.learning_object_id)
     if state is None and learning_object is not None:
         state = initial_mastery_state_for_learning_object(vault, repository, item.learning_object_id, utc_now_iso())

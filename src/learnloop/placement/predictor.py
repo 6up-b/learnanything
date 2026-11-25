@@ -55,7 +55,9 @@ class LiveMasteryPredictor:
         self._vault = vault
         self._repository = repository
         self._states = dict(mastery_states if mastery_states is not None else repository.mastery_states())
-        self._item_params = repository.item_parameter_states()
+        # From the label's retirement the seam reads no empirical difficulty: the table is not loaded.
+        self._item_params = ({} if label_retired(vault.config.algorithms.algorithm_version)
+                             else repository.item_parameter_states())
         self._now_iso = now_iso
         self._priors: dict[str, MasteryState] = {}
         # With the fields arc C retired: the version (a forecast's label, a VOI

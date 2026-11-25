@@ -714,14 +714,17 @@ def _mixture(view: View, record: M.UpdateRecord) -> dict[str, Any]:
     return out
 
 
-def observation_kl(view: View, record: M.UpdateRecord) -> dict[str, float]:
+def observation_kl(view: View, record: M.UpdateRecord) -> dict[str, Any]:
     """The KL of the view's posterior after one answer's observation from its posterior before it (from the
     label's retirement on: a measure recorded beside surprise, deciding nothing). The bank is a mixture over its
     grid points, each a Gaussian the observation updates along one projection, so the joint KL is exact by the
     chain rule: the KL of the posterior grid weights from the prior ones (``w_k ∝ w'_k / z_k``), plus the
     posterior-weighted KL of each point's Gaussian, which for a rank-one update equals the one-dimensional KL along
-    the projection (the record's ``information``). Nats."""
+    the projection (the record's ``information``). Nats. A joint update (the opt-in rating or timing replay) is not
+    rank one: its KL is not measured, and the row says so rather than report the weights' part as the whole."""
 
+    if not record.rank_one:
+        return {"unsupported": "joint_update"}
     posterior = view.bank.weights()[0]
     z = np.exp(np.asarray(record.log_z, dtype=np.float64))
     prior = posterior / np.where(z > 0, z, 1.0)

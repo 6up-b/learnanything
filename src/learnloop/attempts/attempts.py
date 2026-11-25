@@ -4041,7 +4041,7 @@ def load_attempt_prior_state(
         facet_uncertainty=attempt_uncertainty_priors(vault, repository, learning_object_id, facet_ids),
         item_parameter_state=(
             repository.item_parameter_state(practice_item_id)
-            if vault.config.mastery.irt.eb_difficulty_enabled
+            if vault.config.mastery.irt.eb_difficulty_enabled and not label_retired(vault.config.algorithms.algorithm_version)
             else None
         ),
         mastery_seed=mastery_seed,

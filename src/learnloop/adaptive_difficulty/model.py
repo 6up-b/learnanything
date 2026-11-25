@@ -212,6 +212,9 @@ class UpdateRecord:
     category_probabilities: np.ndarray
     log_z: np.ndarray
     information: np.ndarray
+    #: The per-point Gaussian update was rank one along the projection, so ``information`` is its KL. A joint update
+    #: (the opt-in rating or timing replay) moves means and covariances it does not measure.
+    rank_one: bool = True
 
 
 def facet_name(facet: str) -> str:
@@ -597,7 +600,8 @@ class Bank:
             records.append((mu_u[0], S_u[0, 0], mean_u[0], cov_u[0, 0], math.log(z)))
         arr = np.array(records)
         probs = category_probabilities(arr[:, 0], arr[:, 1] + (P.A * P.TAU0) ** 2, np.full(self.B, guess))
-        return UpdateRecord(arr[:, 0], arr[:, 1], arr[:, 2], arr[:, 3], probs, arr[:, 4], np.zeros(self.B))
+        return UpdateRecord(arr[:, 0], arr[:, 1], arr[:, 2], arr[:, 3], probs, arr[:, 4], np.zeros(self.B),
+                            rank_one=False)
 
     # -- reading the bank -----------------------------------------------------------------
 
