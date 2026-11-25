@@ -72,34 +72,41 @@ def stop_diagnosing_and_teach(
     # model client, as the attempt step's block end: normalization then asks no
     # model. Before the posterior, which the block end also reads after it.
     released_feedback, _ = settle_block_answers(vault, repository, episode, ai_client=None, clock=clock)
-    posterior = episode_posterior(vault, repository, episode)
-    active = repository.active_probe_presentation(episode.id)
-    if active is not None:
-        repository.end_probe_presentation(active.id, end_reason="invalidated", clock=clock)
+    # One transaction from the reread to the conversion: the probe router's continuation job decides inside its own
+    # transaction against the episode as it then stands, so it either sees the episode converted and records nothing,
+    # or it committed first and its pin is ended here.
+    with repository.atomic():
+        episode = repository.probe_episode(episode.id)
+        if episode is None or repository.open_probe_episode(learning_object_id) is None:
+            return None
+        posterior = episode_posterior(vault, repository, episode)
+        active = repository.active_probe_presentation(episode.id)
+        if active is not None:
+            repository.end_probe_presentation(active.id, end_reason="invalidated", clock=clock)
 
-    decision = build_typed_transition_decision(
-        vault,
-        repository,
-        episode,
-        posterior,
-        first_error_step_or_claim=first_error_from_block(
-            block_observation_rows(repository, episode)
-        ),
-    )
-    repository.update_probe_episode_status(
-        episode.id,
-        status="converted_to_tutoring",
-        completion_reason="converted_to_tutoring",
-        completed_at=utc_now_iso(clock),
-        clock=clock,
-    )
-    set_target_decision(repository, episode.id, decision, clock=clock)
-    repository.open_state_segment(
-        learning_object_id=learning_object_id,
-        probe_episode_id=episode.id,
-        reason="tutoring_transition",
-        clock=clock,
-    )
+        decision = build_typed_transition_decision(
+            vault,
+            repository,
+            episode,
+            posterior,
+            first_error_step_or_claim=first_error_from_block(
+                block_observation_rows(repository, episode)
+            ),
+        )
+        repository.update_probe_episode_status(
+            episode.id,
+            status="converted_to_tutoring",
+            completion_reason="converted_to_tutoring",
+            completed_at=utc_now_iso(clock),
+            clock=clock,
+        )
+        set_target_decision(repository, episode.id, decision, clock=clock)
+        repository.open_state_segment(
+            learning_object_id=learning_object_id,
+            probe_episode_id=episode.id,
+            reason="tutoring_transition",
+            clock=clock,
+        )
     return StoppedCheck(decision=decision, released_feedback=released_feedback)
 
 

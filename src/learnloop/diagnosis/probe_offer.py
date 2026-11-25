@@ -22,6 +22,7 @@ from learnloop.diagnosis.causal_probe_coherence import (
     order_probe_candidates,
 )
 from learnloop.diagnosis.causal_reads import CAUSAL_ORCHESTRATOR_FORMULA_VERSION, CausalRepairError
+from learnloop.db.writer_fence import require_current
 from learnloop.diagnosis.probe_hard_stops import (
     EPISODE_CONFLICT_REASON,
     _causal_origin,
@@ -396,7 +397,8 @@ def _accept_probe_offer(
         # transaction (UX Phase 4 round 7): a commit-time refusal leaves the
         # episode's lock and its presentation as they were.
         try:
-            with repository.atomic():
+            with repository.atomic(), repository.connection() as connection:
+                require_current(connection)
                 episode = retarget_episode_to_causal_factor(
                     vault, repository, existing, factor_id, origin=origin, clock=clock,
                     reserved_for=practice_item_id,
@@ -404,25 +406,29 @@ def _accept_probe_offer(
                 return finish(episode)
         except _OfferRefusedAtCommit as refused:
             return refused.offer
-    episode = enter_episode(
-        vault,
-        repository,
-        learning_object_id,
-        # `probe_episodes.trigger` is a closed CHECK vocabulary; a cause-set
-        # probe IS a belief-diagnosis trigger.  The causal provenance rides
-        # on `origin`, which is free-form and is what `accept_probe_offer`
-        # matches on when deciding whether an already-open episode is ours.
-        trigger="misconception",
-        origin=origin,
-        causal_factor_id=factor_id,
-        clock=clock,
-        ai_client=ai_client,
-        reserved_for=practice_item_id,
-    )
+    # The entry (its episode, lock and segment) and the pin are one transaction under the writer fence: a stale
+    # process is refused before it writes any of them, and a commit-time refusal leaves no episode behind.
     try:
-        return finish(episode)
+        with repository.atomic(), repository.connection() as connection:
+            require_current(connection)
+            episode = enter_episode(
+                vault,
+                repository,
+                learning_object_id,
+                # `probe_episodes.trigger` is a closed CHECK vocabulary; a cause-set
+                # probe IS a belief-diagnosis trigger.  The causal provenance rides
+                # on `origin`, which is free-form and is what `accept_probe_offer`
+                # matches on when deciding whether an already-open episode is ours.
+                trigger="misconception",
+                origin=origin,
+                causal_factor_id=factor_id,
+                clock=clock,
+                ai_client=ai_client,
+                reserved_for=practice_item_id,
+            )
+            return finish(episode)
     except _OfferRefusedAtCommit as refused:
-        # A new episode only: nothing that existed before is changed.
+        # A new episode only: it is rolled back with the refused pin.
         return refused.offer
 
 

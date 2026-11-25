@@ -354,6 +354,36 @@ def advance(connection: sqlite3.Connection, *, predecessor: str, target: str, re
     )
 
 
+#: The triggers' rule (migrations 275 and 276) as one query: a row exists, this connection is not registered for its
+#: tag, and it is either bound to another tag or not fence-aware at all.
+_REFUSES = (
+    f"SELECT 1 WHERE EXISTS (SELECT 1 FROM {TABLE} WHERE id = 1)"
+    " AND NOT EXISTS (SELECT 1 FROM pragma_function_list"
+    f" WHERE name = lower('{TAG_FUNCTION_PREFIX}' || (SELECT algorithm_version FROM {TABLE} WHERE id = 1)))"
+    f" AND (EXISTS (SELECT 1 FROM pragma_function_list WHERE name GLOB '{TAG_FUNCTION_PREFIX}*')"
+    f" OR NOT EXISTS (SELECT 1 FROM pragma_function_list WHERE name = '{MARKER_FUNCTION}'))"
+)
+
+
+def require_current(connection: sqlite3.Connection) -> None:
+    """Refuse with :class:`WriterFenceRefusal` when the fence would refuse a write on this connection now: the
+    triggers' own rule, asked as a statement. For a unit of work whose tables carry no trigger but whose write a stale
+    process must not commit (the probe router's continuation stop, a first acceptance's episode rows): called inside
+    that work's write transaction, under its lock, so the row cannot move before the commit. Nothing before migration
+    275 (no table) is refused, as the triggers refuse nothing there."""
+
+    try:
+        refused = connection.execute(_REFUSES).fetchone() is not None
+    except sqlite3.OperationalError:
+        return
+    if refused:
+        path = getattr(connection, "fence_path", None)
+        if path is not None:
+            with _OBSERVED_LOCK:
+                _REFUSALS[path] = _REFUSALS.get(path, 0) + 1
+        raise WriterFenceRefusal(REFUSAL)
+
+
 def is_refusal(error: BaseException) -> bool:
     """Whether ``error`` is the fence's refusal of a write (nothing of the write was saved; a retry after the
     process reloads the vault runs under the vault's tag)."""
@@ -384,6 +414,7 @@ __all__ = [
     "recorded_tag",
     "refusals",
     "register",
+    "require_current",
     "restored_scope",
     "scoped",
     "writing_under",

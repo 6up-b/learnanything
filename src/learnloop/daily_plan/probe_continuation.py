@@ -215,6 +215,18 @@ def decide(vault: Any, repository: Any, request: Mapping[str, Any], *, clock: Cl
         detail["evaluation"]["numeric_choice"] = valuation.choice
     try:
         with repository.atomic(), repository.connection() as connection:
+            # One owner of the episode's state: the decision commits only against the episode as it stands inside this
+            # transaction, under its lock. A stale process is refused here, whichever arm it drew (the fence's rule;
+            # the stop writes no fenced table of its own), and a learner's completed action ("Stop diagnosing and
+            # teach me"), another door's presentation or a new answer since the valuation wins: nothing is recorded,
+            # and the next run decides at the boundary as it then is.
+            from learnloop.db.writer_fence import require_current
+
+            require_current(connection)
+            standing = _still_waiting(repository, episode, at)
+            if standing is None:
+                return None
+            episode = standing
             recorded = log_probe_continuation_decision(connection, {
                 "decision_id": decision_id, "factor_id": built.factor_id or str(episode.id),
                 "probe_episode_id": str(episode.id), "receipt_key": receipt_key, "chosen_ref": served,
@@ -253,6 +265,20 @@ def decide(vault: Any, repository: Any, request: Mapping[str, Any], *, clock: Cl
                     exc_info=True)
         return None
     return decision_id
+
+
+def _still_waiting(repository: Any, valued: Any, at: tuple[int, int]) -> Any:
+    """The episode as it stands now when it is still the boundary that was valued (in progress, the same state segment,
+    no presentation standing, the same observation count and redraw), else None."""
+
+    fresh = repository.probe_episode(str(valued.id))
+    if fresh is None or fresh.status != "in_progress":
+        return None
+    if fresh.active_state_segment_id != valued.active_state_segment_id:
+        return None
+    if repository.active_probe_presentation(fresh.id) is not None or boundary(repository, fresh) != at:
+        return None
+    return fresh
 
 
 def run_pending(vault: Any, repository: Any, *, clock: Clock | None = None, max_jobs: int = 100) -> list[str]:
