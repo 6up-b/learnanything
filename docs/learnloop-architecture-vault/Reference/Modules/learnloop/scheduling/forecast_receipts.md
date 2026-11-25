@@ -219,6 +219,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_forecast_receipts_landing.py](../../../../../../tests/test_forecast_receipts_landing.py) — direct import
   - `test_the_provenance_record_the_diagnosis_and_its_forecasts_commit_as_one_transaction`
 - [tests/test_surprise_reads_ad_forecast.py](../../../../../../tests/test_surprise_reads_ad_forecast.py) — direct import
+  - `test_a_grade_receipt_that_fails_to_write_leaves_the_mastery_fallback_and_its_source`
 - [tests/test_teacher_te2log_node_held.py](../../../../../../tests/test_teacher_te2log_node_held.py) — direct import
   - `test_each_p_held_is_a_lesson_node_held_forecast_on_its_lo`
   - `test_one_refused_node_forecast_leaves_its_siblings`

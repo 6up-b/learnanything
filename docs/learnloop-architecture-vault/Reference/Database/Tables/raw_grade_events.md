@@ -19,11 +19,11 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
+  - "src/learnloop/adaptive_difficulty/surprise_forecast.py"
   - "src/learnloop/ai/schemas.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/blind_grading.py"
   - "src/learnloop/cli/grading.py"
-  - "src/learnloop/db/stores/grading.py"
   - "src/learnloop/attempts/effective_observation.py"
   - "src/learnloop/attempts/grade_resolution.py"
 tags:
@@ -114,6 +114,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/adaptive_difficulty/surprise_forecast.py`
 - `src/learnloop/db/stores/grading.py`
 - `src/learnloop/field/outcomes.py`
 

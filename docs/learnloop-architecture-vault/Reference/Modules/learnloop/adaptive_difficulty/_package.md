@@ -113,7 +113,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/adaptive_difficulty/lessons|learnloop.adaptive_difficulty.lessons]] | [[Reference/Modules/learnloop/adaptive_difficulty/lessons#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/logs|learnloop.adaptive_difficulty.logs]] | [[Reference/Modules/learnloop/adaptive_difficulty/logs#^module-purpose|purpose]] | `ACTIVE` | 15 | 0 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] | [[Reference/Modules/learnloop/adaptive_difficulty/material_view#^module-purpose|purpose]] | `ACTIVE` | 25 | 24 |
-| [[Reference/Modules/learnloop/adaptive_difficulty/model|learnloop.adaptive_difficulty.model]] | [[Reference/Modules/learnloop/adaptive_difficulty/model#^module-purpose|purpose]] | `ACTIVE` | 13 | 13 |
+| [[Reference/Modules/learnloop/adaptive_difficulty/model|learnloop.adaptive_difficulty.model]] | [[Reference/Modules/learnloop/adaptive_difficulty/model#^module-purpose|purpose]] | `ACTIVE` | 13 | 14 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/monitoring|learnloop.adaptive_difficulty.monitoring]] | [[Reference/Modules/learnloop/adaptive_difficulty/monitoring#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]] | [[Reference/Modules/learnloop/adaptive_difficulty/operation#^module-purpose|purpose]] | `ACTIVE` | 30 | 25 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/outcomes|learnloop.adaptive_difficulty.outcomes]] | [[Reference/Modules/learnloop/adaptive_difficulty/outcomes#^module-purpose|purpose]] | `ACTIVE` | 4 | 5 |
@@ -129,7 +129,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] | [[Reference/Modules/learnloop/adaptive_difficulty/relatedness#^module-purpose|purpose]] | `ACTIVE` | 6 | 9 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]] | [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/repeat_receipts|learnloop.adaptive_difficulty.repeat_receipts]] | [[Reference/Modules/learnloop/adaptive_difficulty/repeat_receipts#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
-| [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] | [[Reference/Modules/learnloop/adaptive_difficulty/replay#^module-purpose|purpose]] | `ACTIVE` | 13 | 24 |
+| [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] | [[Reference/Modules/learnloop/adaptive_difficulty/replay#^module-purpose|purpose]] | `ACTIVE` | 13 | 25 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/report|learnloop.adaptive_difficulty.report]] | [[Reference/Modules/learnloop/adaptive_difficulty/report#^module-purpose|purpose]] | `ACTIVE` | 2 | 14 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/scoring|learnloop.adaptive_difficulty.scoring]] | [[Reference/Modules/learnloop/adaptive_difficulty/scoring#^module-purpose|purpose]] | `ACTIVE` | 4 | 8 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/selection|learnloop.adaptive_difficulty.selection]] | [[Reference/Modules/learnloop/adaptive_difficulty/selection#^module-purpose|purpose]] | `ACTIVE` | 10 | 7 |
@@ -141,7 +141,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/adaptive_difficulty/spend|learnloop.adaptive_difficulty.spend]] | [[Reference/Modules/learnloop/adaptive_difficulty/spend#^module-purpose|purpose]] | `ACTIVE` | 10 | 3 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/state|learnloop.adaptive_difficulty.state]] | [[Reference/Modules/learnloop/adaptive_difficulty/state#^module-purpose|purpose]] | `ACTIVE` | 5 | 6 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]] | [[Reference/Modules/learnloop/adaptive_difficulty/successor#^module-purpose|purpose]] | `ACTIVE` | 17 | 5 |
-| [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]] | [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
+| [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]] | [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/switches|learnloop.adaptive_difficulty.switches]] | [[Reference/Modules/learnloop/adaptive_difficulty/switches#^module-purpose|purpose]] | `ACTIVE` | 18 | 3 |
 
 ## Cross-package dependencies
@@ -151,7 +151,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/_package|learnloop]] — 38 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 32 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 30 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 26 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 27 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 18 static module edges
 - [[Reference/Modules/learnloop/field/_package|learnloop.field]] — 7 static module edges
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 7 static module edges
@@ -203,7 +203,7 @@ flowchart LR
     center -->|38| n_learnloop
     center -->|32| n_learnloop_ai
     center -->|30| n_learnloop_db_stores
-    center -->|26| n_learnloop_db
+    center -->|27| n_learnloop_db
     n_learnloop_daily_plan -->|21| center
     center -->|18| n_learnloop_scheduling
     n_learnloop_sim -->|16| center

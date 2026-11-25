@@ -115,6 +115,7 @@ Indexes and uniqueness:
 - `tests/test_depth_transition.py`
 - `tests/test_family_memory_projection.py`
 - `tests/test_field_cli.py`
+- `tests/test_label_retirement_counts.py`
 - `tests/test_ro1_upgrade_report.py`
 - `tests/test_shadow_rebuild.py`
 - `tests/test_table_roles.py`

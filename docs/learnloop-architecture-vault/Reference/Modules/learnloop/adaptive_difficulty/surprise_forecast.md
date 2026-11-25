@@ -46,24 +46,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/surprise_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py) |
-| Source lines | 116 |
+| Source lines | 129 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class SurpriseForecast` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 46) — AD's ``p̄`` (an unassisted success) for the answer, before it, and where it was read.
-- `with_grade_forecast(vault: Any, repository: Any, attempt: Any, *, clock: Any=None) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 60) — A live answer from the label's retirement on, with adaptive difficulty's forecast of it (``ApplyAttemptInput.grade_forecast``), computed read-only before the grade's write transaction, so it sees exactly what was committed before the answer, which is not yet written.
-- `record_grade_forecast(repository: Any, receipt: Any) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 74) — Append the live forecast with its attempt, in the grade's transaction (a savepoint: a failed receipt rolls back alone).
-- `read_surprise_forecast(vault: Any, repository: Any, draft: Any, *, attempt_id: str, live_receipt: Any=None, replay: bool) -> SurpriseForecast | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 84) — The forecast this answer's surprise is scored against, or None (mastery's own prediction).
+- `class SurpriseForecast` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 49) — AD's ``p̄`` (an unassisted success) for the answer, before it, and where it was read.
+- `with_grade_forecast(vault: Any, repository: Any, attempt: Any, *, clock: Any=None) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 63) — A live answer from the label's retirement on, with adaptive difficulty's forecast of it (``ApplyAttemptInput.grade_forecast``), computed read-only before the grade's write transaction, so it sees exactly what was committed before the answer, which is not yet written.
+- `record_grade_forecast(vault: Any, repository: Any, receipt: Any) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 90) — Append the live forecast in the grade's transaction, before the grade is computed, so the grade scores against the stored row exactly as a replay will (a savepoint: a failed receipt rolls back alone, and the grade then reads none and records mastery's prediction as its source).
+- `read_surprise_forecast(vault: Any, repository: Any, draft: Any, *, attempt_id: str) -> SurpriseForecast | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 103) — The forecast this answer's surprise is scored against, or None (mastery's own prediction).
 
 ### Module constants
 
-- `SERVE_RECEIPT` ([src/learnloop/adaptive_difficulty/surprise_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 38)
-- `GRADE_RECEIPT` ([src/learnloop/adaptive_difficulty/surprise_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 39)
-- `MASTERY` ([src/learnloop/adaptive_difficulty/surprise_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 40)
-- `SERVE_FORECASTERS` ([src/learnloop/adaptive_difficulty/surprise_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 42)
+- `SERVE_RECEIPT` ([src/learnloop/adaptive_difficulty/surprise_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 41)
+- `GRADE_RECEIPT` ([src/learnloop/adaptive_difficulty/surprise_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 42)
+- `MASTERY` ([src/learnloop/adaptive_difficulty/surprise_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 43)
+- `SERVE_FORECASTERS` ([src/learnloop/adaptive_difficulty/surprise_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 45)
 
 ### Explicit exports
 
@@ -80,7 +80,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_usable(row: dict[str, Any] | None, practice_item_id: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 55)
+- `_usable(row: dict[str, Any] | None, practice_item_id: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 58)
+- `_revised_after(repository: Any, at: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 79) — Whether a grade was recorded or revised after the answer's cutoff ``at``: AD's evidence then holds a grade the learner's answer could not have been forecast with (a retrospective import), so the answer gets no forecast.
 
 ## Who imports or calls it
 
@@ -93,16 +94,17 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/adaptive_difficulty/grade_forecast|learnloop.adaptive_difficulty.grade_forecast]] — imports `receipt_id`, `safe_grade_receipt`; calls `receipt_id`, `safe_grade_receipt`
+- [[Reference/Modules/learnloop/adaptive_difficulty/grade_forecast|learnloop.adaptive_difficulty.grade_forecast]] — imports `receipt_id`, `receipt_key`, `safe_grade_receipt`; calls `receipt_id`, `receipt_key`, `safe_grade_receipt`
 - [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `label_retired`; calls `label_retired`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `utc_now_iso`; calls `utc_now_iso`
+- [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/stores/forecast_receipts|learnloop.db.stores.forecast_receipts]] — imports `module`; calls `attempt_forecast`, `presentation_forecasts`
 - [[Reference/Modules/learnloop/db/stores/plan_presentations|learnloop.db.stores.plan_presentations]] — imports `bindable_presentation`, `presentation_by_id`; calls `bindable_presentation`, `presentation_by_id`
 - [[Reference/Modules/learnloop/scheduling/forecast_receipts|learnloop.scheduling.forecast_receipts]] — imports `ITEM_UNASSISTED_SUCCESS`, `ITEM_UNASSISTED_SUCCESS_AT_GRADE`, `record_receipts`, `valid_for_serve`; calls `record_receipts`, `valid_for_serve`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`, `typing`
+- Standard library: `__future__`, `contextlib`, `dataclasses`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -117,20 +119,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-No test imports this module directly. These tests exercise a direct production consumer:
-
-- [tests/ad23_contract_helpers.py](../../../../../../tests/ad23_contract_helpers.py) — imports consumer [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]]
-- [tests/ad23_fakes.py](../../../../../../tests/ad23_fakes.py) — imports consumer [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]]
-- [tests/assumed_known_helpers.py](../../../../../../tests/assumed_known_helpers.py) — imports consumer [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]]
-- [tests/causal_cold_outcomes_helpers.py](../../../../../../tests/causal_cold_outcomes_helpers.py) — imports consumer [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]]
-- [tests/causal_factor_deferral_helpers.py](../../../../../../tests/causal_factor_deferral_helpers.py) — imports consumer [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]]
-- [tests/causal_p2_acceptance_helpers.py](../../../../../../tests/causal_p2_acceptance_helpers.py) — imports consumer [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]]
-- [tests/certification_cold_probe_helpers.py](../../../../../../tests/certification_cold_probe_helpers.py) — imports consumer [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]]
-- [tests/cold_retry_reschedule_helpers.py](../../../../../../tests/cold_retry_reschedule_helpers.py) — imports consumer [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]]
-- [tests/diagnosis_journey_helpers.py](../../../../../../tests/diagnosis_journey_helpers.py) — imports consumer [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]]
-- [tests/diagnosis_split_helpers.py](../../../../../../tests/diagnosis_split_helpers.py) — imports consumer [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]]
-- [tests/diagnostic_augmentation_helpers.py](../../../../../../tests/diagnostic_augmentation_helpers.py) — imports consumer [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]]
-- [tests/diagnostic_probe_single_use_helpers.py](../../../../../../tests/diagnostic_probe_single_use_helpers.py) — imports consumer [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]]
+- [tests/test_surprise_forecast_scoring.py](../../../../../../tests/test_surprise_forecast_scoring.py) — direct import
+  - `test_without_the_irt_link_surprise_is_centred_on_the_forecast_and_names_its_source`
 
 ## Modification guidance
 

@@ -47,25 +47,26 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py) |
-| Source lines | 1345 |
+| Source lines | 1364 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `successors_from(version: str) -> frozenset[str]` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1142) — ``version`` and every later tag in :data:`SUCCESSOR_CHAIN`.
-- `evidence_reading_fixes_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1195) — The evidence reading fixes (mvp-0.61), gated by the vault's tag alone (no kill switch): below it every one of their readings is mvp-0.60's exactly.
-- `committed_check_delivery_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1209) — The committed-check credit (mvp-0.62), gated by the vault's tag alone (no kill switch): below it a lesson offer's record, its numeric action and every rollout are mvp-0.61's exactly.
-- `section_end_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1222) — A section's end finishes it (mvp-0.63), gated by the vault's tag alone (no kill switch): below it a section is finished exactly as at mvp-0.62 (any completion the Reader sends, its check's close included; an end finishes nothing).
-- `untaken_episode_end_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1236) — An untaken repair episode ends (mvp-0.64), gated by the vault's tag alone (no kill switch): below it such an episode stays open and the routine queue withholds its cold item only while a cold retry is open, exactly as at mvp-0.63.
-- `application_order_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1250) — Same-second grades fold in the order they were applied (mvp-0.65), gated by the vault's tag alone (no kill switch): below it no sequence is reserved and every reader orders the ledger by ``(created_at, id)``, exactly as at mvp-0.64.
-- `lifecycle_inputs_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1264) — A grade application's required facet set is the one captured with its attempt (mvp-0.66), gated by the vault's tag alone (no kill switch): below it nothing is captured and every application reads today's item lifecycle, exactly as at mvp-0.65.
-- `mastery_seed_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1278) — The mastery seed a learning object started from is recorded and replayed (mvp-0.67), gated by the vault's tag alone (no kill switch): below it nothing is recorded and replay seeds a practised learning object from the claims made before its first attempt and an attempt-free one f…
-- `inline_checks_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1297) — Inline checks (mvp-0.69), gated by the vault's tag alone (no kill switch): below it every ``check.*`` RPC refuses and Today ignores the lock, exactly as at mvp-0.68.
-- `pad_text_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1305) — A scratchpad's committed words are learner text (mvp-0.68), gated by the vault's tag alone (no kill switch): below it a pad emits nothing, exactly as at mvp-0.67.
-- `label_retired(algorithm_version: str | None) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1323) — Mastery's IRT seam reads no difficulty label and surprise reads adaptive difficulty's forecast (the retirement's tag); below it, the predecessor's seam exactly.
-- `probe_router_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1331) — The router decides the automatic lane's probe and an unwritten probe is asked only by the probe coin (the probe router's tag), gated by the vault's tag alone (no kill switch): below it the predecessor's follow-up decision exactly.
+- `successors_from(version: str) -> frozenset[str]` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1149) — ``version`` and every later tag in :data:`SUCCESSOR_CHAIN`.
+- `evidence_reading_fixes_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1202) — The evidence reading fixes (mvp-0.61), gated by the vault's tag alone (no kill switch): below it every one of their readings is mvp-0.60's exactly.
+- `committed_check_delivery_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1216) — The committed-check credit (mvp-0.62), gated by the vault's tag alone (no kill switch): below it a lesson offer's record, its numeric action and every rollout are mvp-0.61's exactly.
+- `section_end_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1229) — A section's end finishes it (mvp-0.63), gated by the vault's tag alone (no kill switch): below it a section is finished exactly as at mvp-0.62 (any completion the Reader sends, its check's close included; an end finishes nothing).
+- `untaken_episode_end_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1243) — An untaken repair episode ends (mvp-0.64), gated by the vault's tag alone (no kill switch): below it such an episode stays open and the routine queue withholds its cold item only while a cold retry is open, exactly as at mvp-0.63.
+- `application_order_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1257) — Same-second grades fold in the order they were applied (mvp-0.65), gated by the vault's tag alone (no kill switch): below it no sequence is reserved and every reader orders the ledger by ``(created_at, id)``, exactly as at mvp-0.64.
+- `lifecycle_inputs_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1271) — A grade application's required facet set is the one captured with its attempt (mvp-0.66), gated by the vault's tag alone (no kill switch): below it nothing is captured and every application reads today's item lifecycle, exactly as at mvp-0.65.
+- `mastery_seed_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1285) — The mastery seed a learning object started from is recorded and replayed (mvp-0.67), gated by the vault's tag alone (no kill switch): below it nothing is recorded and replay seeds a practised learning object from the claims made before its first attempt and an attempt-free one f…
+- `inline_checks_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1304) — Inline checks (mvp-0.69), gated by the vault's tag alone (no kill switch): below it every ``check.*`` RPC refuses and Today ignores the lock, exactly as at mvp-0.68.
+- `pad_text_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1312) — A scratchpad's committed words are learner text (mvp-0.68), gated by the vault's tag alone (no kill switch): below it a pad emits nothing, exactly as at mvp-0.67.
+- `label_retired(algorithm_version: str | None) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1330) — Mastery's IRT seam reads no difficulty label and surprise reads adaptive difficulty's forecast (the retirement's tag); below it, the predecessor's seam exactly.
+- `forecast_scoring_fixed(algorithm_version: str | None) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1343) — The label retirement's corrections (their tag): below it mvp-0.72's surprise scoring and delayed-check seeds exactly.
+- `probe_router_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1350) — The router decides the automatic lane's probe and an unwritten probe is asked only by the probe coin (the probe router's tag), gated by the vault's tag alone (no kill switch): below it the predecessor's follow-up decision exactly.
 
 ### Module constants
 
@@ -135,28 +136,30 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `PROBE_ROUTER_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1054)
 - `LABEL_RETIRED_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1064)
 - `LESSON_WEIGHT_CURVES_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1067)
-- `SUCCESSOR_CHAIN` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1075)
-- `OLDEST_SUPPORTED` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1150)
-- `PLACEMENT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1156)
-- `DECIDER_TIER1_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1160)
-- `FAILURE_SHARE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1166)
-- `FIGURE_WAIT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1171)
-- `FACET_BELIEF_FIX_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1176)
-- `ROBUST_GATE_FIX_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1183)
-- `GRADE_CHANNEL_FIX_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1188)
-- `EVIDENCE_READING_FIX_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1192)
-- `COMMITTED_CHECK_DELIVERY_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1206)
-- `SECTION_END_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1219)
-- `UNTAKEN_EPISODE_END_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1233)
-- `APPLICATION_ORDER_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1247)
-- `LIFECYCLE_INPUTS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1261)
-- `MASTERY_SEED_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1275)
-- `PAD_TEXT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1289)
-- `INLINE_CHECK_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1294)
-- `PROBE_ROUTER_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1315)
-- `LABEL_RETIRED_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1320)
-- `LESSON_WEIGHT_CURVE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1339)
-- `LATEST_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1345)
+- `FORECAST_SCORING_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1073)
+- `SUCCESSOR_CHAIN` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1081)
+- `OLDEST_SUPPORTED` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1157)
+- `PLACEMENT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1163)
+- `DECIDER_TIER1_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1167)
+- `FAILURE_SHARE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1173)
+- `FIGURE_WAIT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1178)
+- `FACET_BELIEF_FIX_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1183)
+- `ROBUST_GATE_FIX_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1190)
+- `GRADE_CHANNEL_FIX_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1195)
+- `EVIDENCE_READING_FIX_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1199)
+- `COMMITTED_CHECK_DELIVERY_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1213)
+- `SECTION_END_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1226)
+- `UNTAKEN_EPISODE_END_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1240)
+- `APPLICATION_ORDER_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1254)
+- `LIFECYCLE_INPUTS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1268)
+- `MASTERY_SEED_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1282)
+- `PAD_TEXT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1296)
+- `INLINE_CHECK_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1301)
+- `PROBE_ROUTER_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1322)
+- `LABEL_RETIRED_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1327)
+- `FORECAST_SCORING_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1340)
+- `LESSON_WEIGHT_CURVE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1358)
+- `LATEST_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1364)
 
 ## Internal implementation anchors
 
@@ -170,7 +173,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] — imports `label_retired`; statically calls `label_retired`
 - [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]] — imports `ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]] — imports `label_retired`; statically calls `label_retired`
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `LESSON_WEIGHT_CURVE_VERSIONS`, `label_retired`; statically calls `label_retired`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `LESSON_WEIGHT_CURVE_VERSIONS`, `forecast_scoring_fixed`, `label_retired`; statically calls `forecast_scoring_fixed`, `label_retired`
 - [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] — imports `GRADE_CHANNEL_FIX_VERSIONS`
 - [[Reference/Modules/learnloop/attempts/lifecycle_inputs|learnloop.attempts.lifecycle_inputs]] — imports `LIFECYCLE_INPUTS_VERSIONS`, `lifecycle_inputs_on`; statically calls `lifecycle_inputs_on`
 - [[Reference/Modules/learnloop/attempts/replay_reading|learnloop.attempts.replay_reading]] — imports `evidence_reading_fixes_on`; statically calls `evidence_reading_fixes_on`
@@ -182,6 +185,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `committed_check_delivery_on`, `probe_router_on`; statically calls `committed_check_delivery_on`, `probe_router_on`
 - [[Reference/Modules/learnloop/daily_plan/probe_continuation|learnloop.daily_plan.probe_continuation]] — imports `probe_router_on`; statically calls `probe_router_on`
 - [[Reference/Modules/learnloop/db/attempt_order|learnloop.db.attempt_order]] — imports `APPLICATION_ORDER_VERSIONS`, `application_order_on`; statically calls `application_order_on`
+- [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]] — imports `label_retired`; statically calls `label_retired`
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `evidence_reading_fixes_on`; statically calls `evidence_reading_fixes_on`
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `probe_router_on`; statically calls `probe_router_on`
 - [[Reference/Modules/learnloop/diagnosis/probe_authority|learnloop.diagnosis.probe_authority]] — imports `PROBE_ROUTER_VERSIONS`
@@ -202,7 +206,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `label_retired`, `mastery_seed_on`; statically calls `label_retired`, `mastery_seed_on`
 - [[Reference/Modules/learnloop/learner/mastery_seed|learnloop.learner.mastery_seed]] — imports `mastery_seed_on`; statically calls `mastery_seed_on`
 - [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `LEGACY_ALGORITHM_VERSION`
-- [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `APPLICATION_ORDER_ALGORITHM_VERSION`, `COMMITTED_CHECK_DELIVERY_ALGORITHM_VERSION`, `EVIDENCE_READING_FIX_ALGORITHM_VERSION`, `FACET_BELIEF_FIX_ALGORITHM_VERSION`, `GRADE_CHANNEL_FIX_ALGORITHM_VERSION`, `INLINE_CHECK_ALGORITHM_VERSION`, `LABEL_RETIRED_ALGORITHM_VERSION`, `LATEST_ALGORITHM_VERSION`, `LESSON_WEIGHT_CURVES_ALGORITHM_VERSION`, `LIFECYCLE_INPUTS_ALGORITHM_VERSION`, `MASTERY_SEED_ALGORITHM_VERSION`, `PAD_TEXT_ALGORITHM_VERSION`, `PROBE_ROUTER_ALGORITHM_VERSION`, `SECTION_END_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`, `UNTAKEN_EPISODE_END_ALGORITHM_VERSION`
+- [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `APPLICATION_ORDER_ALGORITHM_VERSION`, `COMMITTED_CHECK_DELIVERY_ALGORITHM_VERSION`, `EVIDENCE_READING_FIX_ALGORITHM_VERSION`, `FACET_BELIEF_FIX_ALGORITHM_VERSION`, `FORECAST_SCORING_ALGORITHM_VERSION`, `GRADE_CHANNEL_FIX_ALGORITHM_VERSION`, `INLINE_CHECK_ALGORITHM_VERSION`, `LABEL_RETIRED_ALGORITHM_VERSION`, `LATEST_ALGORITHM_VERSION`, `LESSON_WEIGHT_CURVES_ALGORITHM_VERSION`, `LIFECYCLE_INPUTS_ALGORITHM_VERSION`, `MASTERY_SEED_ALGORITHM_VERSION`, `PAD_TEXT_ALGORITHM_VERSION`, `PROBE_ROUTER_ALGORITHM_VERSION`, `SECTION_END_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`, `UNTAKEN_EPISODE_END_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/pads/emission|learnloop.pads.emission]] — imports `pad_text_on`; statically calls `pad_text_on`
 - [[Reference/Modules/learnloop/placement/predictor|learnloop.placement.predictor]] — imports `label_retired`; statically calls `label_retired`
 - [[Reference/Modules/learnloop/placement/report|learnloop.placement.report]] — imports `PLACEMENT_VERSIONS`
@@ -215,6 +219,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] — imports `OLDEST_SUPPORTED`
 - [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] — imports `mastery_seed_on`; statically calls `mastery_seed_on`
 - [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `LESSON_WEIGHT_CURVE_VERSIONS`
+- [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]] — imports `forecast_scoring_fixed`; statically calls `forecast_scoring_fixed`
 - [[Reference/Modules/learnloop/version_floor|learnloop.version_floor]] — imports `LATEST_ALGORITHM_VERSION`, `OLDEST_SUPPORTED`, `RECURRENCE_GROUP_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `probe_router_on`; statically calls `probe_router_on`
 - [[Reference/Modules/learnloop_sidecar/handlers/remediation|learnloop_sidecar.handlers.remediation]] — imports `probe_router_on`; statically calls `probe_router_on`
@@ -242,7 +247,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]], [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]], [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] and 46 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]], [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]], [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] and 48 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -380,6 +385,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_data_capture_a5_not_ready_floor.py](../../../../../tests/test_data_capture_a5_not_ready_floor.py) — direct import
 - [tests/test_data_capture_a6_delayed_pick.py](../../../../../tests/test_data_capture_a6_delayed_pick.py) — direct import
   - `test_from_the_label_retirement_an_los_items_tie_and_the_pick_draws`
+  - `test_two_landed_nodes_on_one_lo_draw_their_checks_from_their_own_seeds`
 - [tests/test_data_capture_codex_review.py](../../../../../tests/test_data_capture_codex_review.py) — direct import
   - `test_f3_every_evaluated_probe_keeps_its_forecast_in_the_receipt_only`
 - [tests/test_data_capture_successor.py](../../../../../tests/test_data_capture_successor.py) — direct import
@@ -481,6 +487,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_irt_difficulty.py](../../../../../tests/test_irt_difficulty.py) — direct import
 - [tests/test_irt_end_to_end.py](../../../../../tests/test_irt_end_to_end.py) — direct import
 - [tests/test_item_parameters.py](../../../../../tests/test_item_parameters.py) — direct import
+  - `test_from_the_label_retirement_no_reader_fetches_the_empirical_difficulty_rows`
   - `test_from_the_label_retirement_the_flag_persists_nothing`
 - [tests/test_k1_remediation_cold_reservation.py](../../../../../tests/test_k1_remediation_cold_reservation.py) — direct import
   - `test_below_mvp_0_64_the_routine_due_queue_withholds_a_cold_item_only_while_its_check_is_pending`

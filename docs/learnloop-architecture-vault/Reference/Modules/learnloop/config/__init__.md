@@ -493,6 +493,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_chat_transport_executes_every_feature_operation`
 - [tests/test_surprise.py](../../../../../../tests/test_surprise.py) — direct import
   - `test_fsrs_interval_factor_within_bounds`
+- [tests/test_surprise_forecast_scoring.py](../../../../../../tests/test_surprise_forecast_scoring.py) — direct import
 - [tests/test_t6_followup_composition.py](../../../../../../tests/test_t6_followup_composition.py) — direct import
   - `test_pf_caller_prices_a_truncation_retry_at_its_doubled_output_budget`
 - [tests/test_t6_followup_review.py](../../../../../../tests/test_t6_followup_review.py) — direct import

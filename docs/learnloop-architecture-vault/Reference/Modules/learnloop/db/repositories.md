@@ -1673,6 +1673,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_item_fingerprints.py](../../../../../../tests/test_item_fingerprints.py) — direct import
   - `test_a_vault_without_families_has_no_fingerprint_rows`
 - [tests/test_item_parameters.py](../../../../../../tests/test_item_parameters.py) — direct import
+  - `test_from_the_label_retirement_no_reader_fetches_the_empirical_difficulty_rows`
   - `test_resolver_uses_posterior_only_when_enabled`
 - [tests/test_joint_grading_builder.py](../../../../../../tests/test_joint_grading_builder.py) — direct import
 - [tests/test_judge_routes.py](../../../../../../tests/test_judge_routes.py) — direct import
@@ -2522,11 +2523,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_surface_mint.py](../../../../../../tests/test_surface_mint.py) — direct import
 - [tests/test_surfaced_belief_corrections.py](../../../../../../tests/test_surfaced_belief_corrections.py) — direct import
 - [tests/test_surprise.py](../../../../../../tests/test_surprise.py) — direct import
+- [tests/test_surprise_forecast_scoring.py](../../../../../../tests/test_surprise_forecast_scoring.py) — direct import
 - [tests/test_surprise_reads_ad_forecast.py](../../../../../../tests/test_surprise_reads_ad_forecast.py) — direct import
+  - `test_a_grade_receipt_that_fails_to_write_leaves_the_mastery_fallback_and_its_source`
   - `test_a_rebuild_reproduces_every_surprise_row_and_writes_no_receipt`
   - `test_a_regrade_rereads_the_answers_first_forecast`
   - `test_a_writer_committing_between_the_read_and_the_write_leaves_the_recorded_forecast_standing`
   - `test_ads_trace_records_the_kl_of_its_posterior_from_the_tag_on`
+  - `test_an_answer_dated_before_recorded_evidence_gets_no_grade_time_forecast`
   - `test_history_before_the_tag_falls_back_to_mastery_marked`
   - `test_the_label_does_not_move_mastery`
 - [tests/test_synthesis_answer_reuse.py](../../../../../../tests/test_synthesis_answer_reuse.py) — direct import

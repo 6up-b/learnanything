@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/grade_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py) |
-| Source lines | 117 |
+| Source lines | 136 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `receipt_id(attempt_id: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 37) — A grade-time receipt's id, a function of its attempt (:func:`learnloop.ids.keyed_ulid`): drawn from ``ids.new_ulid`` it would shift every id the grade mints after it, and drawn from a stream of its own it would differ between two runs of the same history.
 - `receipt_key(attempt_id: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 45)
-- `grade_receipt(vault: Any, repository: Any, *, practice_item_id: str, attempt_id: str, at: str, view: Any=None) -> ForecastReceipt | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 50) — AD's subject-view forecast for the answer ``attempt_id`` to ``practice_item_id`` at ``at``, from AD's state over everything recorded before it; None when AD is off, the item is protected or unknown to AD's view.
-- `safe_grade_receipt(vault: Any, repository: Any, **kwargs: Any) -> ForecastReceipt | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 106) — :func:`grade_receipt`, never raising: a forecast never costs the grade.
+- `grade_receipt(vault: Any, repository: Any, *, practice_item_id: str, attempt_id: str, at: str, view: Any=None) -> ForecastReceipt | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 61) — AD's subject-view forecast for the answer ``attempt_id`` to ``practice_item_id`` at ``at``, from AD's state over everything recorded before it; None when AD is off, the item is protected or unknown to AD's view.
+- `safe_grade_receipt(vault: Any, repository: Any, **kwargs: Any) -> ForecastReceipt | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 125) — :func:`grade_receipt`, never raising: a forecast never costs the grade.
 
 ### Module constants
 
@@ -79,14 +79,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-No private top-level function or class definition is declared in this file.
+- `_evidence_after(events: Any, at: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 49) — Whether AD's evidence holds anything dated after the answer's cutoff ``at`` (an attempt, a claim or a reading opportunity).
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]] — imports `receipt_id`, `safe_grade_receipt`; statically calls `receipt_id`, `safe_grade_receipt`
+- [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]] — imports `receipt_id`, `receipt_key`, `safe_grade_receipt`; statically calls `receipt_id`, `receipt_key`, `safe_grade_receipt`
 
 ## Dependencies
 
@@ -98,7 +98,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]] — imports `entry`; calls `entry`
 - [[Reference/Modules/learnloop/adaptive_difficulty/predict|learnloop.adaptive_difficulty.predict]] — imports `module`; calls `category_mixture`, `predict`
 - [[Reference/Modules/learnloop/adaptive_difficulty/priors|learnloop.adaptive_difficulty.priors]] — imports `module`; calls `versions`
-- [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] — imports `module`; calls `events_fingerprint`, `snapshot`
+- [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] — imports `module`; calls `days`, `events_fingerprint`, `snapshot`
 - [[Reference/Modules/learnloop/adaptive_difficulty/selection|learnloop.adaptive_difficulty.selection]] — imports `module`; calls `constants_from_config`
 - [[Reference/Modules/learnloop/adaptive_difficulty/serving|learnloop.adaptive_difficulty.serving]] — imports `_spec`, `_warmth`, `served_item`; calls `_spec`, `_warmth`, `served_item`
 - [[Reference/Modules/learnloop/adaptive_difficulty/snapshot_parts|learnloop.adaptive_difficulty.snapshot_parts]] — imports `threshold_snapshot`; calls `threshold_snapshot`

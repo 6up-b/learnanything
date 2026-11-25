@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/forecast_receipts.py](../../../../../../../src/learnloop/db/stores/forecast_receipts.py) |
-| Source lines | 156 |
+| Source lines | 160 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -58,7 +58,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `insert_receipt(connection: sqlite3.Connection, *, receipt_key: str, kind: str, forecaster: str, forecaster_version: str, scope: str, decision_kind: str, binding_kind: str, event: str, forecast: Mapping[str, Any], inputs: Mapping[str, Any], inputs_hash: str, inputs_as_of: str, parameters: Any, versions: Mapping[str, Any], created_at: str, status: str='ok', receipt_id: str | None=None, **columns: Any) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/forecast_receipts.py), line 44) — Append one receipt; None when its receipt key already exists.
 - `list_receipts(connection: sqlite3.Connection, *, since: str | None=None, kind: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/forecast_receipts.py), line 103) — Every receipt (decoded), oldest first; ``[]`` on a database without the table.
 - `presentation_forecasts(connection: sqlite3.Connection, presentation_id: str, *, kind: str, forecasters: tuple[str, ...]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/forecast_receipts.py), line 128) — A plan presentation's receipts of ``kind`` by these forecasters (raw columns), in the order they are named, then oldest first; ``[]`` without the table.
-- `attempt_forecast(connection: sqlite3.Connection, attempt_id: str, *, kind: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/forecast_receipts.py), line 144) — The first receipt of ``kind`` about ``attempt_id`` (``source_attempt_id``), raw columns; None without one.
+- `attempt_forecast(connection: sqlite3.Connection, attempt_id: str, *, kind: str, receipt_key: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/forecast_receipts.py), line 144) — The receipt ``receipt_key`` (its unique index) when it is of ``kind`` and about ``attempt_id`` (``source_attempt_id``), raw columns; None otherwise or without the table.
 
 ### Module constants
 
@@ -128,6 +128,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_failed_receipt_never_breaks_its_diagnosis`
 - [tests/test_forecast_receipts_landing.py](../../../../../../../tests/test_forecast_receipts_landing.py) — direct import
   - `test_a_failed_forecast_receipt_keeps_the_diagnosis_and_its_provenance_record`
+- [tests/test_surprise_reads_ad_forecast.py](../../../../../../../tests/test_surprise_reads_ad_forecast.py) — direct import
+  - `test_a_grade_receipt_that_fails_to_write_leaves_the_mastery_fallback_and_its_source`
 - [tests/test_teacher_te2log_node_held.py](../../../../../../../tests/test_teacher_te2log_node_held.py) — direct import
   - `test_a_refused_forecast_rolls_back_alone_and_the_plan_stands`
   - `test_one_refused_node_forecast_leaves_its_siblings`

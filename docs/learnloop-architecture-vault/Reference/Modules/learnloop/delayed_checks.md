@@ -47,27 +47,27 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/delayed_checks.py](../../../../../src/learnloop/delayed_checks.py) |
-| Source lines | 188 |
+| Source lines | 193 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `attempted_items(repository: Any) -> set[str]` ([source](../../../../../src/learnloop/delayed_checks.py), line 24)
-- `revealed_items(repository: Any, lesson_id: str) -> set[str]` ([source](../../../../../src/learnloop/delayed_checks.py), line 29) — Items this lesson exposed (a reveal row with basis ``lesson:<id>``), and items whose summed exposure already reaches the auto-prime threshold (an answer would be primed: never cold).
-- `lineage(item: Any) -> set[str]` ([source](../../../../../src/learnloop/delayed_checks.py), line 44) — The structural kin an item declares: its family, its contrast pair, its shared stimulus and the source exercise it presents (any shared key makes two items the same material).
-- `candidates(vault: Any, repository: Any, learning_object_id: str, *, exclude: Iterable[str], withheld: Any, attempted: set[str], revealed: set[str], excluded_lineage: set[str] | frozenset[str]=frozenset()) -> list[Any]` ([source](../../../../../src/learnloop/delayed_checks.py), line 62) — The candidate rule (§13 step 1) for one LO, in id order.
-- `check_available(vault: Any, repository: Any, learning_object_id: str, *, withheld: Any, attempted: set[str]) -> bool` ([source](../../../../../src/learnloop/delayed_checks.py), line 86) — Whether a delayed check could be committed on the LO now: the candidate rule finds an unseen, unrevealed, unwithheld, servable question, before any lesson shows anything (no exclusion of a lesson's own items).
-- `predicted_item_success(vault: Any, repository: Any, item: Any) -> float | None` ([source](../../../../../src/learnloop/delayed_checks.py), line 97) — The active predictor's predicted unassisted success on this item: the LO's mastery (its first update's prior when it has no evidence yet) through the item's own IRT parameters.
-- `seed_for(seed_key: str) -> str` ([source](../../../../../src/learnloop/delayed_checks.py), line 128) — The seed of a tie's draw: a function of the decision the pick serves (``seed_key``, a persisted id), never of the candidates or the run, and recorded on the pick's receipt with the draw it gives.
-- `pick_with_receipt(vault: Any, repository: Any, items: Sequence[Any], *, seed_key: str='') -> tuple[Any | None, dict[str, Any]]` ([source](../../../../../src/learnloop/delayed_checks.py), line 135) — The candidate pitched nearest the band's middle by its own prediction, and what was decided.
-- `due_days(vault: Any, repository: Any, *, purpose: str, lesson_item_ids: Sequence[str]) -> tuple[float, str]` ([source](../../../../../src/learnloop/delayed_checks.py), line 165) — Days until the check is due, and how they were set (``retrievability`` or ``fallback``).
+- `attempted_items(repository: Any) -> set[str]` ([source](../../../../../src/learnloop/delayed_checks.py), line 26)
+- `revealed_items(repository: Any, lesson_id: str) -> set[str]` ([source](../../../../../src/learnloop/delayed_checks.py), line 31) — Items this lesson exposed (a reveal row with basis ``lesson:<id>``), and items whose summed exposure already reaches the auto-prime threshold (an answer would be primed: never cold).
+- `lineage(item: Any) -> set[str]` ([source](../../../../../src/learnloop/delayed_checks.py), line 46) — The structural kin an item declares: its family, its contrast pair, its shared stimulus and the source exercise it presents (any shared key makes two items the same material).
+- `candidates(vault: Any, repository: Any, learning_object_id: str, *, exclude: Iterable[str], withheld: Any, attempted: set[str], revealed: set[str], excluded_lineage: set[str] | frozenset[str]=frozenset()) -> list[Any]` ([source](../../../../../src/learnloop/delayed_checks.py), line 64) — The candidate rule (§13 step 1) for one LO, in id order.
+- `check_available(vault: Any, repository: Any, learning_object_id: str, *, withheld: Any, attempted: set[str]) -> bool` ([source](../../../../../src/learnloop/delayed_checks.py), line 88) — Whether a delayed check could be committed on the LO now: the candidate rule finds an unseen, unrevealed, unwithheld, servable question, before any lesson shows anything (no exclusion of a lesson's own items).
+- `predicted_item_success(vault: Any, repository: Any, item: Any) -> float | None` ([source](../../../../../src/learnloop/delayed_checks.py), line 99) — The active predictor's predicted unassisted success on this item: the LO's mastery (its first update's prior when it has no evidence yet) through the item's own IRT parameters.
+- `seed_for(seed_key: str) -> str` ([source](../../../../../src/learnloop/delayed_checks.py), line 133) — The seed of a tie's draw: a function of the decision the pick serves (``seed_key``, a persisted id), never of the candidates or the run, and recorded on the pick's receipt with the draw it gives.
+- `pick_with_receipt(vault: Any, repository: Any, items: Sequence[Any], *, seed_key: str='') -> tuple[Any | None, dict[str, Any]]` ([source](../../../../../src/learnloop/delayed_checks.py), line 140) — The candidate pitched nearest the band's middle by its own prediction, and what was decided.
+- `due_days(vault: Any, repository: Any, *, purpose: str, lesson_item_ids: Sequence[str]) -> tuple[float, str]` ([source](../../../../../src/learnloop/delayed_checks.py), line 170) — Days until the check is due, and how they were set (``retrievability`` or ``fallback``).
 
 ### Module constants
 
-- `PICK_VERSION` ([src/learnloop/delayed_checks.py](../../../../../src/learnloop/delayed_checks.py), line 19)
-- `_EXACT_TIE` ([src/learnloop/delayed_checks.py](../../../../../src/learnloop/delayed_checks.py), line 21)
+- `PICK_VERSION` ([src/learnloop/delayed_checks.py](../../../../../src/learnloop/delayed_checks.py), line 21)
+- `_EXACT_TIE` ([src/learnloop/delayed_checks.py](../../../../../src/learnloop/delayed_checks.py), line 23)
 
 ### Explicit exports
 
@@ -86,8 +86,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_band_middle(vault: Any) -> float` ([source](../../../../../src/learnloop/delayed_checks.py), line 116)
-- `_uniform(seed: str) -> float` ([source](../../../../../src/learnloop/delayed_checks.py), line 121) — A uniform in [0, 1) from the seed (53 bits of a SHA-256, as the router's draws).
+- `_band_middle(vault: Any) -> float` ([source](../../../../../src/learnloop/delayed_checks.py), line 121)
+- `_uniform(seed: str) -> float` ([source](../../../../../src/learnloop/delayed_checks.py), line 126) — A uniform in [0, 1) from the seed (53 bits of a SHA-256, as the router's draws).
 
 ## Who imports or calls it
 
@@ -104,6 +104,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `label_retired`; calls `label_retired`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `generated_probe_ids`; calls `generated_probe_ids`
 - [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] — imports `predicted_success`; calls `predicted_success`
@@ -145,6 +146,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_pick_is_the_item_nearest_the_band_not_the_smallest_id`
   - `test_the_same_lo_has_a_different_prediction_per_item`
 - [tests/test_difficulty_kinds_apart.py](../../../../../tests/test_difficulty_kinds_apart.py) — direct import
+- [tests/test_item_parameters.py](../../../../../tests/test_item_parameters.py) — direct import
+  - `test_from_the_label_retirement_no_reader_fetches_the_empirical_difficulty_rows`
 - [tests/test_serve_tie_breaks.py](../../../../../tests/test_serve_tie_breaks.py) — direct import
   - `test_a_delayed_picks_tie_is_one_answer_in_any_candidate_order_and_replays_from_its_receipt`
 

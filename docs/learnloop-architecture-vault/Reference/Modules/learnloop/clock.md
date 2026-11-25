@@ -1003,6 +1003,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_data_capture_a6_delayed_pick.py](../../../../../tests/test_data_capture_a6_delayed_pick.py) — direct import
   - `test_commit_checks_carry_the_delayed_check_receipt_fields`
   - `test_the_lessons_forecast_reference_is_the_item_the_check_would_commit`
+  - `test_two_landed_nodes_on_one_lo_draw_their_checks_from_their_own_seeds`
 - [tests/test_data_capture_codex_rereview.py](../../../../../tests/test_data_capture_codex_rereview.py) — direct import
   - `test_f10_a_check_answered_between_settles_reads_the_same_whatever_the_wall_clock`
 - [tests/test_data_capture_codex_review.py](../../../../../tests/test_data_capture_codex_review.py) — direct import
@@ -2184,7 +2185,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_withdrawal_drops_the_belief_from_working_hypotheses`
   - `test_withdrawals_interleave_reverse_chronologically`
 - [tests/test_surprise_reads_ad_forecast.py](../../../../../tests/test_surprise_reads_ad_forecast.py) — direct import
+  - `test_a_grade_receipt_that_fails_to_write_leaves_the_mastery_fallback_and_its_source`
   - `test_a_writer_committing_between_the_read_and_the_write_leaves_the_recorded_forecast_standing`
+  - `test_an_answer_dated_before_recorded_evidence_gets_no_grade_time_forecast`
   - `test_the_grade_does_not_wait_on_a_second_clock`
 - [tests/test_synthesis_criterion_dependencies.py](../../../../../tests/test_synthesis_criterion_dependencies.py) — direct import
 - [tests/test_synthesis_runs_repo.py](../../../../../tests/test_synthesis_runs_repo.py) — direct import

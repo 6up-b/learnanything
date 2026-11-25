@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/model.py](../../../../../../src/learnloop/adaptive_difficulty/model.py) |
-| Source lines | 768 |
+| Source lines | 772 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -67,43 +67,43 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `cell_regression(self, facet: str, capability: str, existing: Callable[[str], bool]) -> Regression` (line 197; public)
   - `coupled_facets(self, facet: str) -> tuple[str, ...]` (line 200; public)
 - `class UpdateRecord` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 205) — One factor's trace (§5.6 step 6), per row.
-- `facet_name(facet: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 217)
-- `cell_name(facet: str, capability: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 221)
-- `subject_name(subject: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 225)
-- `capability_name(subject: str, capability: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 229)
-- `class Bank` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 233) — ``B = groups x len(points)`` filters sharing one event skeleton (see the module docstring).
-  - `__init__(self, points: Sequence[P.HyperPoint], *, groups: int=1, structure: Structure | None=None, reading: bool=False, verdict: bool=False, rating: bool=False, timing: bool=False, outside: bool=False, capacity: int=64) -> None` (line 236; internal)
-  - `_reserve(self, capacity: int) -> None` (line 278; internal)
-  - `_views(self) -> None` (line 292; internal)
-  - `_append(self, name: str, mean: np.ndarray, var: np.ndarray, *, cov: np.ndarray | None=None, s0_row: np.ndarray | None=None, s0_var: np.ndarray | None=None, topic: bool=False) -> int` (line 297; internal)
-  - `has(self, name: str) -> bool` (line 325; public)
-  - `copy(self) -> 'Bank'` (line 328; public)
-  - `marginalize(self, names: Iterable[str]) -> None` (line 343; public) — Drop coordinates (exact for a Gaussian); only for coordinates no later event touches (sims).
-  - `ensure_subject(self, subject: str, at: float | None=None) -> int` (line 370; public)
-  - `ensure_lessons(self) -> None` (line 377; public) — The lesson curves' coefficients (``ad_lesson_priors_v1``; spec_teacher_v1 §14.2), created at the subject view's first lesson opportunity, as a subject or a facet is at its first observation: a bank no lesson has reached has exactly its predecessor's coordinates, means and covari…
-  - `ensure_capability(self, subject: str, capability: str) -> int | None` (line 387; public)
-  - `_regressed(self, name: str, regression: Regression) -> int` (line 396; internal)
-  - `ensure_facet(self, facet: str, at: float | None=None) -> int` (line 414; public)
-  - `ensure_cell(self, facet: str, capability: str, at: float | None=None) -> int` (line 421; public)
-  - `virtual(self, name: str, regression: Regression | None, *, mean: float=0.0, variance: np.ndarray | None=None) -> tuple[np.ndarray, np.ndarray, np.ndarray]` (line 429; public) — A coordinate that does not exist yet, as it would be created now, without creating it: ``(coefficients over existing coordinates (B, d), mean (B,), own variance (B,))``.
-  - `corr0(self, a: str, b: str) -> np.ndarray` (line 449; public) — The a-priori correlation a coupling set between two topic coordinates (§5.10's ``corr₀``).
-  - `add_linear(self, target: str, coefficients: Mapping[str, np.ndarray | float]) -> None` (line 460; public) — ``s_target ← s_target + Σ c_j s_j`` (a linear map: the covariance propagates exactly).
-  - `drift(self, name: str, at: float) -> None` (line 479; public) — §5.6 step 3: ``Var(e_{f,k}) += σ²_drift · Δdays`` since the cell's last update.
-  - `reanchor_mean(self, name: str, mean: np.ndarray | float, prior_variance: np.ndarray | float) -> None` (line 489; public) — A claim moves a mean and never shrinks a variance (§5.5, Claims).
-  - `moments(self, u: np.ndarray, extra_mean: np.ndarray | None=None, extra_var: np.ndarray | None=None) -> tuple[np.ndarray, np.ndarray]` (line 499; public) — ``(m, v_e)`` of ``η_e = ũᵀs`` (plus a virtual coordinates' contribution).
-  - `update(self, u: np.ndarray, category: np.ndarray | int, guess: np.ndarray | float=0.0, *, rows: np.ndarray | None=None, residual_variance: np.ndarray | float | None=None) -> UpdateRecord` (line 512; public) — One base-arm factor: §5.3's category (or the censored ``{0, 1}``) on ``η_e = ũᵀs``.
-  - `update_joint(self, u: np.ndarray, *, category: int, guess: float=0.0, rating: str | None=None, log_latency_ratio: float | None=None) -> UpdateRecord` (line 556; public) — The joint factor with the sub-arms (§5.4, §5.6 step 4): outcome, rating and timing share ``η`` and the residual, integrated once by tensor quadrature (32 nodes on ``η``, 5 per link).
-  - `weights(self) -> np.ndarray` (line 604; public) — ``W(ξ)``, normalized within each group: shape ``(groups, points)``.
-  - `restricted_weights(self, mask: np.ndarray) -> np.ndarray` (line 612; public) — Weights renormalized over the points where ``mask`` (``(points,)``) holds.
-  - `mean(self, name: str) -> np.ndarray` (line 621; public)
-  - `variance(self, name: str) -> np.ndarray` (line 624; public)
-  - `state_hash(self) -> str` (line 628; public)
-- `rating_likelihood(eta: np.ndarray, rho: np.ndarray, c1: np.ndarray, c2: np.ndarray, rating: str) -> np.ndarray` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 673) — ``+rating``'s ordinal link (§5.4): valid for every value of ``(c_1, d̃, ρ̃)``.
-- `rating_probabilities(eta: float, rho_t: float, c1: float, d_t: float) -> dict[str, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 685)
-- `cell_information(m: np.ndarray, v_e: np.ndarray, cov_c: np.ndarray, var_c: np.ndarray, guess: float=0.0, *, chunk: int=4096) -> np.ndarray` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 694) — ``I(θ_c; Y | x)`` per row: 24 outer nodes over ``θ_c``, 24 inner over the rest plus ``ε`` (the pre-registered rule, ``docs/reviews/adaptive-difficulty-ad23.md`` §1.1).
-- `dose_basis(n: float) -> tuple[float, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 724)
-- `dose_increments(n: np.ndarray, dose: np.ndarray) -> np.ndarray` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 728) — :func:`dose_increment` per row, vectorized: ``(B, 2)``.
-- `dose_increment(n: float, dose: float) -> tuple[float, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 737) — ``b_m(n + D) - b_m(n)`` for both scales: the known weights of a reading transition.
+- `facet_name(facet: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 220)
+- `cell_name(facet: str, capability: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 224)
+- `subject_name(subject: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 228)
+- `capability_name(subject: str, capability: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 232)
+- `class Bank` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 236) — ``B = groups x len(points)`` filters sharing one event skeleton (see the module docstring).
+  - `__init__(self, points: Sequence[P.HyperPoint], *, groups: int=1, structure: Structure | None=None, reading: bool=False, verdict: bool=False, rating: bool=False, timing: bool=False, outside: bool=False, capacity: int=64) -> None` (line 239; internal)
+  - `_reserve(self, capacity: int) -> None` (line 281; internal)
+  - `_views(self) -> None` (line 295; internal)
+  - `_append(self, name: str, mean: np.ndarray, var: np.ndarray, *, cov: np.ndarray | None=None, s0_row: np.ndarray | None=None, s0_var: np.ndarray | None=None, topic: bool=False) -> int` (line 300; internal)
+  - `has(self, name: str) -> bool` (line 328; public)
+  - `copy(self) -> 'Bank'` (line 331; public)
+  - `marginalize(self, names: Iterable[str]) -> None` (line 346; public) — Drop coordinates (exact for a Gaussian); only for coordinates no later event touches (sims).
+  - `ensure_subject(self, subject: str, at: float | None=None) -> int` (line 373; public)
+  - `ensure_lessons(self) -> None` (line 380; public) — The lesson curves' coefficients (``ad_lesson_priors_v1``; spec_teacher_v1 §14.2), created at the subject view's first lesson opportunity, as a subject or a facet is at its first observation: a bank no lesson has reached has exactly its predecessor's coordinates, means and covari…
+  - `ensure_capability(self, subject: str, capability: str) -> int | None` (line 390; public)
+  - `_regressed(self, name: str, regression: Regression) -> int` (line 399; internal)
+  - `ensure_facet(self, facet: str, at: float | None=None) -> int` (line 417; public)
+  - `ensure_cell(self, facet: str, capability: str, at: float | None=None) -> int` (line 424; public)
+  - `virtual(self, name: str, regression: Regression | None, *, mean: float=0.0, variance: np.ndarray | None=None) -> tuple[np.ndarray, np.ndarray, np.ndarray]` (line 432; public) — A coordinate that does not exist yet, as it would be created now, without creating it: ``(coefficients over existing coordinates (B, d), mean (B,), own variance (B,))``.
+  - `corr0(self, a: str, b: str) -> np.ndarray` (line 452; public) — The a-priori correlation a coupling set between two topic coordinates (§5.10's ``corr₀``).
+  - `add_linear(self, target: str, coefficients: Mapping[str, np.ndarray | float]) -> None` (line 463; public) — ``s_target ← s_target + Σ c_j s_j`` (a linear map: the covariance propagates exactly).
+  - `drift(self, name: str, at: float) -> None` (line 482; public) — §5.6 step 3: ``Var(e_{f,k}) += σ²_drift · Δdays`` since the cell's last update.
+  - `reanchor_mean(self, name: str, mean: np.ndarray | float, prior_variance: np.ndarray | float) -> None` (line 492; public) — A claim moves a mean and never shrinks a variance (§5.5, Claims).
+  - `moments(self, u: np.ndarray, extra_mean: np.ndarray | None=None, extra_var: np.ndarray | None=None) -> tuple[np.ndarray, np.ndarray]` (line 502; public) — ``(m, v_e)`` of ``η_e = ũᵀs`` (plus a virtual coordinates' contribution).
+  - `update(self, u: np.ndarray, category: np.ndarray | int, guess: np.ndarray | float=0.0, *, rows: np.ndarray | None=None, residual_variance: np.ndarray | float | None=None) -> UpdateRecord` (line 515; public) — One base-arm factor: §5.3's category (or the censored ``{0, 1}``) on ``η_e = ũᵀs``.
+  - `update_joint(self, u: np.ndarray, *, category: int, guess: float=0.0, rating: str | None=None, log_latency_ratio: float | None=None) -> UpdateRecord` (line 559; public) — The joint factor with the sub-arms (§5.4, §5.6 step 4): outcome, rating and timing share ``η`` and the residual, integrated once by tensor quadrature (32 nodes on ``η``, 5 per link).
+  - `weights(self) -> np.ndarray` (line 608; public) — ``W(ξ)``, normalized within each group: shape ``(groups, points)``.
+  - `restricted_weights(self, mask: np.ndarray) -> np.ndarray` (line 616; public) — Weights renormalized over the points where ``mask`` (``(points,)``) holds.
+  - `mean(self, name: str) -> np.ndarray` (line 625; public)
+  - `variance(self, name: str) -> np.ndarray` (line 628; public)
+  - `state_hash(self) -> str` (line 632; public)
+- `rating_likelihood(eta: np.ndarray, rho: np.ndarray, c1: np.ndarray, c2: np.ndarray, rating: str) -> np.ndarray` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 677) — ``+rating``'s ordinal link (§5.4): valid for every value of ``(c_1, d̃, ρ̃)``.
+- `rating_probabilities(eta: float, rho_t: float, c1: float, d_t: float) -> dict[str, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 689)
+- `cell_information(m: np.ndarray, v_e: np.ndarray, cov_c: np.ndarray, var_c: np.ndarray, guess: float=0.0, *, chunk: int=4096) -> np.ndarray` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 698) — ``I(θ_c; Y | x)`` per row: 24 outer nodes over ``θ_c``, 24 inner over the rest plus ``ε`` (the pre-registered rule, ``docs/reviews/adaptive-difficulty-ad23.md`` §1.1).
+- `dose_basis(n: float) -> tuple[float, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 728)
+- `dose_increments(n: np.ndarray, dose: np.ndarray) -> np.ndarray` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 732) — :func:`dose_increment` per row, vectorized: ``(B, 2)``.
+- `dose_increment(n: float, dose: float) -> tuple[float, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 741) — ``b_m(n + D) - b_m(n)`` for both scales: the known weights of a reading transition.
 
 ### Module constants
 
@@ -144,7 +144,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `_erfc(x: np.ndarray) -> np.ndarray` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 135) — ``erfc`` by the Chebyshev fit of Numerical Recipes (fractional error < 1.2e-7 everywhere).
 - `_phi(x: np.ndarray) -> np.ndarray` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 153)
-- `_joint_moments(mu_q: np.ndarray, S_q: np.ndarray, links: Sequence[str], *, category: int, guess: float, rating: str | None, log_latency_ratio: float | None) -> tuple[float, np.ndarray, np.ndarray]` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 639) — ``Z`` and the posterior moments of ``q = (η, links)`` by tensor Gauss-Hermite quadrature.
+- `_joint_moments(mu_q: np.ndarray, S_q: np.ndarray, links: Sequence[str], *, category: int, guess: float, rating: str | None, log_latency_ratio: float | None) -> tuple[float, np.ndarray, np.ndarray]` ([source](../../../../../../src/learnloop/adaptive_difficulty/model.py), line 643) — ``Z`` and the posterior moments of ``q = (η, links)`` by tensor Gauss-Hermite quadrature.
 
 ## Who imports or calls it
 
@@ -227,6 +227,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rofu_ad_stable.py](../../../../../../tests/test_rofu_ad_stable.py) — direct import
   - `test_codexs_case_gives_one_outcome_on_every_path_all_at_f`
   - `test_the_logit_is_stable_and_its_slope_matches_the_transformation`
+- [tests/test_surprise_reads_ad_forecast.py](../../../../../../tests/test_surprise_reads_ad_forecast.py) — direct import
+  - `test_a_joint_update_reports_its_kl_as_unmeasured_not_zero`
 - [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
   - `test_the_objective_reads_the_curve_through_ads_entry_only_at_the_tag_with_the_switch_on`
   - `test_the_prior_is_centred_and_spread_on_ro4s_placeholder_with_ads_shape`

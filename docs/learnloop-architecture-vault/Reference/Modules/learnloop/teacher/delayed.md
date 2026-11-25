@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/delayed.py](../../../../../../src/learnloop/teacher/delayed.py) |
-| Source lines | 247 |
+| Source lines | 258 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -60,8 +60,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `measures_facet(vault: Any, item: Any, facets: set[str]) -> bool` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 104) — Whether a criterion of the item's rubric measures one of ``facets`` (its targets, else the item's declared facets: KM §9.3's "a criterion that visibly exercises it").
 - `presentation(item: Any) -> str | None` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 125)
 - `pick(vault: Any, repository: Any, items: Sequence[Any], *, seed_key: str='') -> Any | None` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 131) — The candidate pitched nearest the band's middle (the house prior); module docstring.
-- `retention_seed_key(lesson_id: str, learning_object_id: str) -> str` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 137) — The retention check's draw: its commit and the lesson forecast about it share it (§12.2).
-- `commit_checks(vault: Any, repository: Any, *, lesson_id: str, landed: Sequence[Mapping[str, Any]], goal_learning_object_ids: Sequence[str], lesson_items_by_lo: Mapping[str, Sequence[str]], shown_items: Iterable[str], taught_learning_objects: Sequence[str]=(), clock: Clock | None=None) -> tuple[list[dict[str, Any]], list[str]]` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 143) — Commit one retention check per landed node with an LO and one transfer check; returns ``(delayed_checks, warnings)`` for the receipt.
+- `retention_seed_key(lesson_id: str, learning_object_id: str, node_id: str | None=None) -> str` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 137) — The retention check's draw: its commit and the lesson forecast about it share it (§12.2).
+- `node_seed(vault: Any, node_id: Any) -> str | None` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 146) — The node's identity in its retention seed from the corrections' tag (mvp-0.73); None below it.
+- `commit_checks(vault: Any, repository: Any, *, lesson_id: str, landed: Sequence[Mapping[str, Any]], goal_learning_object_ids: Sequence[str], lesson_items_by_lo: Mapping[str, Sequence[str]], shown_items: Iterable[str], taught_learning_objects: Sequence[str]=(), clock: Clock | None=None) -> tuple[list[dict[str, Any]], list[str]]` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 154) — Commit one retention check per landed node with an LO and one transfer check; returns ``(delayed_checks, warnings)`` for the receipt.
 
 ### Module constants
 
@@ -81,6 +82,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `lineage`
 - `measures_facet`
 - `pick`
+- `node_seed`
 - `pick_with_receipt`
 - `presentation`
 - `retention_seed_key`
@@ -96,13 +98,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `module`; statically calls `_attempted`, `_revealed`, `candidates`, `due_days`, `lineage`, `pick`, `retention_seed_key`
+- [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `module`; statically calls `_attempted`, `_revealed`, `candidates`, `due_days`, `lineage`, `node_seed`, `pick`, `retention_seed_key`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `module`; statically calls `commit_checks`, `shown_vault_items`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `forecast_scoring_fixed`; calls `forecast_scoring_fixed`
 - [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `resolved_rubric`; calls `resolved_rubric`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/curriculum/commitments|learnloop.curriculum.commitments]] — imports `module`; calls `create_commitment`
@@ -137,6 +140,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_from_the_label_retirement_an_los_items_tie_and_the_pick_draws`
   - `test_the_lessons_forecast_reference_is_the_item_the_check_would_commit`
   - `test_the_pick_is_the_item_nearest_the_band_not_the_smallest_id`
+  - `test_two_landed_nodes_on_one_lo_draw_their_checks_from_their_own_seeds`
 - [tests/test_difficulty_kinds_apart.py](../../../../../../tests/test_difficulty_kinds_apart.py) — direct import
 - [tests/test_teacher_te1_review_fixes.py](../../../../../../tests/test_teacher_te1_review_fixes.py) — direct import
   - `test_f8_a_downstream_edge_alone_is_not_transfer`

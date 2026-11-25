@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/placement/predictor.py](../../../../../../src/learnloop/placement/predictor.py) |
-| Source lines | 188 |
+| Source lines | 190 |
 | Owning package | [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -57,15 +57,15 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class PredictorNotActivatable(ValueError)` ([source](../../../../../../src/learnloop/placement/predictor.py), line 30) — The configured active predictor has no live adapter (needs Phase 4).
 - `class LiveMasteryPredictor` ([source](../../../../../../src/learnloop/placement/predictor.py), line 39) — ``mastery_ekf`` served from the persisted per-LO posterior.
   - `__init__(self, vault: LoadedVault, repository: Repository, *, mastery_states: Mapping[str, MasteryState] | None=None, now_iso: str='1970-01-01T00:00:00Z') -> None` (line 47; internal)
-  - `_state(self, learning_object_id: str) -> tuple[MasteryState, bool]` (line 74; internal) — (posterior or claim-anchored prior, untested).
-  - `_item(self, item: ItemFeatures | str) -> tuple[str, float, float]` (line 88; internal)
-  - `predict(self, features: ItemFeatures) -> float` (line 103; public)
-  - `predict_item(self, item: ItemFeatures | str) -> ItemPrediction` (line 106; public)
-  - `region_estimates(self, scope: Iterable[str] | None=None) -> dict[str, RegionEstimate]` (line 114; public)
-  - `conditional_gain(self, item: ItemFeatures | str, chosen: Iterable[ItemFeatures | str], weights: Mapping[str, float]) -> float` (line 129; public) — Expected posterior-variance reduction, weighted by region.
-  - `observe(self, row: Any) -> None` (line 165; public)
-  - `rebuild(self, rows: Iterable[Any]) -> None` (line 168; public)
-- `active_predictor(vault: LoadedVault, repository: Repository, *, mastery_states: Mapping[str, MasteryState] | None=None, now_iso: str='1970-01-01T00:00:00Z') -> LearnerPredictor` ([source](../../../../../../src/learnloop/placement/predictor.py), line 172) — The configured ``field.active_predictor``, served live.
+  - `_state(self, learning_object_id: str) -> tuple[MasteryState, bool]` (line 76; internal) — (posterior or claim-anchored prior, untested).
+  - `_item(self, item: ItemFeatures | str) -> tuple[str, float, float]` (line 90; internal)
+  - `predict(self, features: ItemFeatures) -> float` (line 105; public)
+  - `predict_item(self, item: ItemFeatures | str) -> ItemPrediction` (line 108; public)
+  - `region_estimates(self, scope: Iterable[str] | None=None) -> dict[str, RegionEstimate]` (line 116; public)
+  - `conditional_gain(self, item: ItemFeatures | str, chosen: Iterable[ItemFeatures | str], weights: Mapping[str, float]) -> float` (line 131; public) — Expected posterior-variance reduction, weighted by region.
+  - `observe(self, row: Any) -> None` (line 167; public)
+  - `rebuild(self, rows: Iterable[Any]) -> None` (line 170; public)
+- `active_predictor(vault: LoadedVault, repository: Repository, *, mastery_states: Mapping[str, MasteryState] | None=None, now_iso: str='1970-01-01T00:00:00Z') -> LearnerPredictor` ([source](../../../../../../src/learnloop/placement/predictor.py), line 174) — The configured ``field.active_predictor``, served live.
 
 ### Module constants
 
@@ -125,6 +125,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_predictor_assumption_is_impossible_under_the_incumbent`
 - [tests/test_discriminating_search.py](../../../../../../tests/test_discriminating_search.py) — direct import
   - `test_retention_is_posed_only_after_an_assisted_only_success_with_the_active_predictor`
+- [tests/test_item_parameters.py](../../../../../../tests/test_item_parameters.py) — direct import
+  - `test_from_the_label_retirement_no_reader_fetches_the_empirical_difficulty_rows`
 - [tests/test_quick_check.py](../../../../../../tests/test_quick_check.py) — direct import
   - `test_selection_is_the_largest_conditional_gain_and_deterministic`
 - [tests/test_reader_followups_review.py](../../../../../../tests/test_reader_followups_review.py) — direct import

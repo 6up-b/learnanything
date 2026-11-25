@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/replay.py](../../../../../../src/learnloop/adaptive_difficulty/replay.py) |
-| Source lines | 1035 |
+| Source lines | 1038 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -69,14 +69,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class Snapshot` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 612) — The replay's result: the subject view, each LO's view, the traces.
   - `state_hash(self) -> str` (line 625; public)
   - `lo_view(self, learning_object_id: str) -> View` (line 632; public) — The LO's view (a fresh prior view when it has no eligible row yet).
-- `observation_kl(view: View, record: M.UpdateRecord) -> dict[str, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 717) — The KL of the view's posterior after one answer's observation from its posterior before it (from the label's retirement on: a measure recorded beside surprise, deciding nothing).
-- `class Context` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 737) — What a prequential observer knows about an attempt before its update (the harness, §10.4).
-- `run(events: Events, settings: ReplaySettings=ReplaySettings(), *, trace: bool=True, observer: Any=None) -> Snapshot` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 752) — Replay the events into both views (§5.6), in fixed order, float64.
-- `events_fingerprint(events: Events) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 891) — The digest of everything the replay reads (attempts with their frozen inputs, claims, reading opportunities, the relatedness structure and the vault maps).
-- `snapshot(vault: Any, repository: Any, *, settings: ReplaySettings | None=None, connection: Any=None, as_of: str | None=None, view: Any=None) -> Snapshot` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 919) — The current state (cached per database, vault and settings while the replay's events are unchanged).
-- `clear_cache() -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 954)
-- `state_rows(snap: Snapshot, *, as_of: str | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 978)
-- `rebuild(vault: Any, repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 990) — The AD replayer (``ad_state``, ``ad_attempt_trace``): clear and rebuild, zero model calls.
+- `observation_kl(view: View, record: M.UpdateRecord) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 717) — The KL of the view's posterior after one answer's observation from its posterior before it (from the label's retirement on: a measure recorded beside surprise, deciding nothing).
+- `class Context` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 740) — What a prequential observer knows about an attempt before its update (the harness, §10.4).
+- `run(events: Events, settings: ReplaySettings=ReplaySettings(), *, trace: bool=True, observer: Any=None) -> Snapshot` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 755) — Replay the events into both views (§5.6), in fixed order, float64.
+- `events_fingerprint(events: Events) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 894) — The digest of everything the replay reads (attempts with their frozen inputs, claims, reading opportunities, the relatedness structure and the vault maps).
+- `snapshot(vault: Any, repository: Any, *, settings: ReplaySettings | None=None, connection: Any=None, as_of: str | None=None, view: Any=None) -> Snapshot` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 922) — The current state (cached per database, vault and settings while the replay's events are unchanged).
+- `clear_cache() -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 957)
+- `state_rows(snap: Snapshot, *, as_of: str | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 981)
+- `rebuild(vault: Any, repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 993) — The AD replayer (``ad_state``, ``ad_attempt_trace``): clear and rebuild, zero model calls.
 
 ### Module constants
 
@@ -85,8 +85,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `VIEW_SUBJECT` ([src/learnloop/adaptive_difficulty/replay.py](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 75)
 - `CLAIM_SOURCES` ([src/learnloop/adaptive_difficulty/replay.py](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 76)
 - `WARMTH_SOURCES` ([src/learnloop/adaptive_difficulty/replay.py](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 77)
-- `_CACHE` ([src/learnloop/adaptive_difficulty/replay.py](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 875)
-- `_CACHE_LOCK` ([src/learnloop/adaptive_difficulty/replay.py](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 876)
+- `_CACHE` ([src/learnloop/adaptive_difficulty/replay.py](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 878)
+- `_CACHE_LOCK` ([src/learnloop/adaptive_difficulty/replay.py](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 879)
 
 ### Explicit exports
 
@@ -131,8 +131,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_apply_claim(view: View, claim: ClaimEvent, events: Events, *, observed_subjects: set[str], observed_facets: set[str], los: Iterable[str] | None=None) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 670)
 - `_apply_claims_for_lo(view: View, events: Events, lo: str, *, upto: float) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 696)
 - `_mixture(view: View, record: M.UpdateRecord) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 702)
-- `_plain(value: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 879)
-- `_summary_payload(view: View, *, uniform_mask: np.ndarray | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 961)
+- `_plain(value: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 882)
+- `_summary_payload(view: View, *, uniform_mask: np.ndarray | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 964)
 
 ## Who imports or calls it
 
@@ -142,7 +142,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/arms|learnloop.adaptive_difficulty.arms]] — imports `module`; statically calls `load_events`, `run`
 - [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]] — imports `module`; statically calls `snapshot`
 - [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] — imports `module`; statically calls `days`, `snapshot`
-- [[Reference/Modules/learnloop/adaptive_difficulty/grade_forecast|learnloop.adaptive_difficulty.grade_forecast]] — imports `module`; statically calls `events_fingerprint`, `snapshot`
+- [[Reference/Modules/learnloop/adaptive_difficulty/grade_forecast|learnloop.adaptive_difficulty.grade_forecast]] — imports `module`; statically calls `days`, `events_fingerprint`, `snapshot`
 - [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]] — imports `module`; statically calls `load_events`
 - [[Reference/Modules/learnloop/adaptive_difficulty/readiness|learnloop.adaptive_difficulty.readiness]] — imports `module`; statically calls `snapshot`
 - [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] — imports `module`; statically calls `load_events`, `run`
@@ -264,6 +264,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_same_second_order.py](../../../../../../tests/test_same_second_order.py) — direct import
   - `test_adaptive_difficultys_replay_gives_the_first_surface_to_the_first_in_the_ledgers_order`
   - `test_adaptive_difficultys_stream_keeps_attempts_before_claims_and_opportunities_at_one_time`
+- [tests/test_surprise_reads_ad_forecast.py](../../../../../../tests/test_surprise_reads_ad_forecast.py) — direct import
+  - `test_a_joint_update_reports_its_kl_as_unmeasured_not_zero`
 - [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
   - `test_after_a_lesson_the_curve_the_objective_reads_has_the_topics_position`
   - `test_replay_equivalence_live_fresh_and_rebuilt`
