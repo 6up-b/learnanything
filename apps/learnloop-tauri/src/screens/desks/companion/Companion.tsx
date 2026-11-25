@@ -251,6 +251,9 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
     return () => {
       live = false;
       timers.clear(handle);
+      // An older page still loading is dropped too (the tab left, a new query, the companion
+      // closed): it sets nothing when it lands (ledger R4-G1).
+      historyGeneration.current += 1;
     };
     // loadHistory is a stable callback from the shell.
     // eslint-disable-next-line react-hooks/exhaustive-deps

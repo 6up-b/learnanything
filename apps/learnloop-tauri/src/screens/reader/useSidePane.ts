@@ -228,7 +228,10 @@ function useSidePaneCues({
   onTryFirst?: (spanId: string) => void;
 }) {
   const [plan, setPlan] = useState<ReaderGuidePlanDto | null>(null);
+  // Bumped by each read and when the pane closes (unmount): a plan read still in
+  // flight then sets nothing when it lands (ledger R4-G1).
   const generation = useRef(0);
+  useEffect(() => () => { generation.current += 1; }, []);
 
   // This book's plan (a local read through the Reader's cache), re-read when
   // the density changes anywhere; a re-read of the same reading keeps the

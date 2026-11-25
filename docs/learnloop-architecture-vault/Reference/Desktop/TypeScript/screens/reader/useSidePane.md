@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/useSidePane.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/useSidePane.ts) |
-| Source lines | 331 |
+| Source lines | 334 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -58,7 +58,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface SidePaneInput` — interface, line 58
 - `export function useSidePane(input: SidePaneInput)` — function, line 96
 - `export type SidePane = ReturnType<typeof useSidePane>` — type, line 198
-- `export function inSidePane(target: EventTarget | null): boolean` — function, line 329
+- `export function inSidePane(target: EventTarget | null): boolean` — function, line 332
 
 ## Internal implementation anchors
 
@@ -82,29 +82,29 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const marksChanged = useCallback(()` — const, line 183
 - `const cues = useSidePaneCues(` — const, line 185
 - `function useSidePaneCues(` — function, line 211
-- `const generation = useRef(0)` — const, line 231
-- `const readFor = useRef<string | null>(null)` — const, line 236
-- `const reloadPending = useRef(false)` — const, line 242
-- `const read = useCallback(async (force: boolean)` — const, line 243
-- `const mine = generation.current` — const, line 245
-- `const next = await readGuidePlan(sourceId, extractionId, force ?` — const, line 251
-- `const again = readFor.current === extractionId && extractionId !== null` — const, line 259
-- `const pending = extractionId !== null && reloadPending.current` — const, line 262
-- `const reloadPlan = useCallback(()` — const, line 266
-- `const reloadBoth = useCallback(async ()` — const, line 269
-- `const body = hostRef.current` — const, line 279
-- `let last: string | null = null` — let, line 281
-- `const observer = new ResizeObserver(()` — const, line 282
-- `const size = `$` — const, line 283
-- `const render = useMemo(()` — const, line 293
-- `const spanOrder = useMemo( ()` — const, line 295
-- `const blocksKey = (blocks ?? []).map((block)` — const, line 297
-- `const jumpToSpan = useCallback((spanId: string)` — const, line 299
-- `const node = Array.from(hostRef.current?.querySelectorAll<HTMLElement>("[data-sbs-span]") ?? []) .find((element)` — const, line 300
-- `const ownsKey = useCallback((event: KeyboardEvent)` — const, line 305
-- `const sideVisitPayload = useCallback(()` — const, line 307
-- `const ownVisit = useCallback(()` — const, line 311
-- `const cueCtl = useReaderCues(` — const, line 313
+- `const generation = useRef(0)` — const, line 233
+- `const readFor = useRef<string | null>(null)` — const, line 239
+- `const reloadPending = useRef(false)` — const, line 245
+- `const read = useCallback(async (force: boolean)` — const, line 246
+- `const mine = generation.current` — const, line 248
+- `const next = await readGuidePlan(sourceId, extractionId, force ?` — const, line 254
+- `const again = readFor.current === extractionId && extractionId !== null` — const, line 262
+- `const pending = extractionId !== null && reloadPending.current` — const, line 265
+- `const reloadPlan = useCallback(()` — const, line 269
+- `const reloadBoth = useCallback(async ()` — const, line 272
+- `const body = hostRef.current` — const, line 282
+- `let last: string | null = null` — let, line 284
+- `const observer = new ResizeObserver(()` — const, line 285
+- `const size = `$` — const, line 286
+- `const render = useMemo(()` — const, line 296
+- `const spanOrder = useMemo( ()` — const, line 298
+- `const blocksKey = (blocks ?? []).map((block)` — const, line 300
+- `const jumpToSpan = useCallback((spanId: string)` — const, line 302
+- `const node = Array.from(hostRef.current?.querySelectorAll<HTMLElement>("[data-sbs-span]") ?? []) .find((element)` — const, line 303
+- `const ownsKey = useCallback((event: KeyboardEvent)` — const, line 308
+- `const sideVisitPayload = useCallback(()` — const, line 310
+- `const ownVisit = useCallback(()` — const, line 314
+- `const cueCtl = useReaderCues(` — const, line 316
 
 ## Who imports or calls it
 
