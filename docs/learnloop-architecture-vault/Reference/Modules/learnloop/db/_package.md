@@ -63,7 +63,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/__init__|learnloop.db]] | [[Reference/Modules/learnloop/db/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/db/attempt_availability|learnloop.db.attempt_availability]] | [[Reference/Modules/learnloop/db/attempt_availability#^module-purpose|purpose]] | `ACTIVE` | 16 | 7 |
 | [[Reference/Modules/learnloop/db/attempt_lifecycle_inputs|learnloop.db.attempt_lifecycle_inputs]] | [[Reference/Modules/learnloop/db/attempt_lifecycle_inputs#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
-| [[Reference/Modules/learnloop/db/attempt_order|learnloop.db.attempt_order]] | [[Reference/Modules/learnloop/db/attempt_order#^module-purpose|purpose]] | `ACTIVE` | 11 | 4 |
+| [[Reference/Modules/learnloop/db/attempt_order|learnloop.db.attempt_order]] | [[Reference/Modules/learnloop/db/attempt_order#^module-purpose|purpose]] | `ACTIVE` | 12 | 4 |
 | [[Reference/Modules/learnloop/db/checkpoint|learnloop.db.checkpoint]] | [[Reference/Modules/learnloop/db/checkpoint#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] | [[Reference/Modules/learnloop/db/connection#^module-purpose|purpose]] | `ACTIVE` | 196 | 260 |
 | [[Reference/Modules/learnloop/db/copies|learnloop.db.copies]] | [[Reference/Modules/learnloop/db/copies#^module-purpose|purpose]] | `ACTIVE` | 10 | 58 |
@@ -107,9 +107,9 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 21 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 20 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 17 static module edges
+- [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 17 static module edges
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 17 static module edges
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 16 static module edges
-- [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 16 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 15 static module edges
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 13 static module edges
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 13 static module edges

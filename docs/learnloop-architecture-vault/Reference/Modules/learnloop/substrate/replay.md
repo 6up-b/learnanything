@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/replay.py](../../../../../../src/learnloop/substrate/replay.py) |
-| Source lines | 627 |
+| Source lines | 633 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -59,8 +59,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - `class RebuildResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 33)
   - `as_dict(self) -> dict[str, object]` (line 40; public)
 - `replay_learning_object(vault: LoadedVault, repository: Repository, learning_object_id: str, *, error_attribution_overrides: dict[str, list[GradeAttribution]] | None=None, grader_identity_overrides: dict[str, tuple[str, str] | None] | None=None, project_canonical_state: bool=True, applying_grade_to: str | None=None, clock: Clock | None=None, gate_records: Mapping[str, Sequence[Any]] | None=None, repairing_grade_records: frozenset[str]=frozenset()) -> ReplayResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 284) — Rebuild attempt-derived state for one learning object from persisted grades.
-- `rebuild_derived_state(vault: LoadedVault, repository: Repository, *, learning_object_ids: list[str] | None=None, clock: Clock | None=None, record_receipt: bool=True, project_canonical_state: bool=True, gate_records: Mapping[str, Sequence[Any]] | None=None) -> RebuildResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 507) — Replay all requested learning objects that have persisted attempts.
-- `record_content_recalibration(vault: LoadedVault, repository: Repository, *, affected_learning_object_ids: list[str], clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/substrate/replay.py), line 574) — Stamp the recalibration boundary AT the content change, not after it.
+- `rebuild_derived_state(vault: LoadedVault, repository: Repository, *, learning_object_ids: list[str] | None=None, clock: Clock | None=None, record_receipt: bool=True, project_canonical_state: bool=True, gate_records: Mapping[str, Sequence[Any]] | None=None) -> RebuildResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 513) — Replay all requested learning objects that have persisted attempts.
+- `record_content_recalibration(vault: LoadedVault, repository: Repository, *, affected_learning_object_ids: list[str], clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/substrate/replay.py), line 580) — Stamp the recalibration boundary AT the content change, not after it.
 
 ## Internal implementation anchors
 
@@ -69,7 +69,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - `_order_key(row: Mapping[str, Any]) -> tuple[float, str]` ([source](../../../../../../src/learnloop/substrate/replay.py), line 253) — A row's place in the shared ``(created_at, id)`` order; an unparseable stamp sorts first.
 - `_claim_position(claim: Mapping[str, Any], learning_object_id: str, attempt_keys: list[tuple[float, str]]) -> tuple[int, float, str] | None` ([source](../../../../../../src/learnloop/substrate/replay.py), line 260) — ``(attempts applied before the claim, created_at, id)``, or None for an unordered claim.
 - `_parse_or_none(value: Any)` ([source](../../../../../../src/learnloop/substrate/replay.py), line 277)
-- `_replay_learning_object(vault: LoadedVault, repository: Repository, learning_object_id: str, *, error_attribution_overrides: dict[str, list[GradeAttribution]] | None, grader_identity_overrides: dict[str, tuple[str, str] | None] | None, project_canonical_state: bool, clock: Clock | None, gate_records: Mapping[str, Sequence[Any]] | None=None, recording_grades_of: frozenset[str]=frozenset()) -> ReplayResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 362)
+- `_replay_learning_object(vault: LoadedVault, repository: Repository, learning_object_id: str, *, error_attribution_overrides: dict[str, list[GradeAttribution]] | None, grader_identity_overrides: dict[str, tuple[str, str] | None] | None, project_canonical_state: bool, clock: Clock | None, gate_records: Mapping[str, Sequence[Any]] | None=None, recording_grades_of: frozenset[str]=frozenset(), repairing_grade_records: frozenset[str]=frozenset()) -> ReplayResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 363)
 
 ## Who imports or calls it
 
@@ -91,7 +91,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `AttemptResult`, `GradeAttribution`, `replay_existing_attempt`; calls `replay_existing_attempt`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `AttemptResult`, `GradeAttribution`, `recover_grade_channel`, `replay_existing_attempt`; calls `recover_grade_channel`, `replay_existing_attempt`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `FrozenClock`, `parse_utc`, `utc_now_iso`; calls `FrozenClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/db/attempt_order|learnloop.db.attempt_order]] — imports `attempt_order_for`; calls `attempt_order_for`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `CANONICAL_STAMPED_TABLES`, `Repository`
@@ -103,7 +103,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `module`; calls `after_what_they_replaced`, `claim_fixes_live`, `covering_claims`, `reanchor_mastery_from_claim`, `recorded_seed_state`, `seed_for_learning_object`
 - [[Reference/Modules/learnloop/learner/mastery_seed|learnloop.learner.mastery_seed]] — imports `note_rebuilt_seed`, `recorded_seed_for_replay`; calls `note_rebuilt_seed`, `recorded_seed_for_replay`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `CANONICAL_PROJECTION_VERSION`, `project_canonical_facet_state`; calls `project_canonical_facet_state`
-- [[Reference/Modules/learnloop/substrate/compat/activity_backfill|learnloop.substrate.compat.activity_backfill]] — imports `predates_substrate`, `substrate_began_at`; calls `predates_substrate`, `substrate_began_at`
+- [[Reference/Modules/learnloop/substrate/compat/activity_backfill|learnloop.substrate.compat.activity_backfill]] — imports `substrate_cutovers`; calls `substrate_cutovers`
 - [[Reference/Modules/learnloop/substrate/projection_switches|learnloop.substrate.projection_switches]] — imports `projection_switches`; calls `projection_switches`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 

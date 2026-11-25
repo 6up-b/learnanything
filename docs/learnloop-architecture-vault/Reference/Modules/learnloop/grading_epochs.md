@@ -101,6 +101,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/attempts/replay_reading|learnloop.attempts.replay_reading]] — imports `graded_more_than_once`; statically calls `graded_more_than_once`
 - [[Reference/Modules/learnloop/db/stores/grade_curves|learnloop.db.stores.grade_curves]] — imports `GradingEpoch`, `current_epoch`, `group_epochs`; statically calls `current_epoch`, `group_epochs`
 - [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]] — imports `current_epoch`, `only_grade`, `ordered_epochs`; statically calls `current_epoch`, `only_grade`, `ordered_epochs`
+- [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `graded_more_than_once`; statically calls `graded_more_than_once`
 - [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] — imports `current_epoch`; statically calls `current_epoch`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `current_epoch`; statically calls `current_epoch`
 - [[Reference/Modules/learnloop/substrate/compat/activity_backfill|learnloop.substrate.compat.activity_backfill]] — imports `graded_more_than_once`; statically calls `graded_more_than_once`
@@ -125,7 +126,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/attempts/replay_reading|learnloop.attempts.replay_reading]] and 7 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/attempts/replay_reading|learnloop.attempts.replay_reading]] and 8 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

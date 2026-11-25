@@ -502,6 +502,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_held_out_sentinel_never_reaches_ad_inputs`
 - [tests/test_answered_revision_protection.py](../../../../../../tests/test_answered_revision_protection.py) — direct import
   - `test_a_plan_answer_to_a_held_out_served_revision_writes_no_grade_receipt`
+  - `test_an_answer_whose_contract_cites_an_unsaved_held_revision_is_withheld`
 - [tests/test_attach_to_family.py](../../../../../../tests/test_attach_to_family.py) — direct import
 - [tests/test_attempt_predicate_characterization.py](../../../../../../tests/test_attempt_predicate_characterization.py) — direct import
 - [tests/test_blind_grading_contract.py](../../../../../../tests/test_blind_grading_contract.py) — direct import

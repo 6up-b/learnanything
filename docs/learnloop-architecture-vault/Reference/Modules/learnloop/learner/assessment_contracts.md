@@ -130,6 +130,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/required_method_round3_rereview_helpers.py](../../../../../../tests/required_method_round3_rereview_helpers.py) — direct import
 - [tests/test_answered_revision_protection.py](../../../../../../tests/test_answered_revision_protection.py) — direct import
   - `test_a_presentation_after_a_grade_froze_its_contract_saves_the_revision_it_showed`
+  - `test_an_answer_whose_contract_cites_an_unsaved_held_revision_is_withheld`
 - [tests/test_architecture.py](../../../../../../tests/test_architecture.py) — direct import
   - `test_assessment_service_reexports_neutral_algorithm_versions`
 - [tests/test_assessment_contracts.py](../../../../../../tests/test_assessment_contracts.py) — direct import

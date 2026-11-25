@@ -180,6 +180,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/teacher_te2_probes_helpers.py](../../../../../../tests/teacher_te2_probes_helpers.py) — direct import
 - [tests/test_lesson_answer_turns.py](../../../../../../tests/test_lesson_answer_turns.py) — direct import
+  - `test_a_budget_refused_probe_answer_is_saved_unassessed_with_the_close`
   - `test_a_lesson_probe_answer_turn_commits_with_its_grade`
 - [tests/test_reader_rd9a_fix.py](../../../../../../tests/test_reader_rd9a_fix.py) — direct import
   - `test_a_quick_question_is_never_served_or_answered_in_a_desk_window`

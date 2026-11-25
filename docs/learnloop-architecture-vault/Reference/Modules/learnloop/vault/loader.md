@@ -390,6 +390,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/teacher_te2log_receipt_helpers.py](../../../../../../tests/teacher_te2log_receipt_helpers.py) — direct import
 - [tests/test_activity_backfill.py](../../../../../../tests/test_activity_backfill.py) — direct import
   - `test_backfill_is_idempotent_on_fixture_copy`
+  - `test_backfill_logs_attempt_duration_for_a_pre_substrate_attempt_of_a_live_vault`
   - `test_backfill_logs_attempt_duration_interaction_events`
   - `test_backfill_marks_unverifiable_for_missing_item`
   - `test_backfill_populates_substrate_from_fixture`
@@ -627,6 +628,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_answered_revision_protection.py](../../../../../../tests/test_answered_revision_protection.py) — direct import
   - `test_a_plan_answer_to_a_held_out_served_revision_writes_no_grade_receipt`
   - `test_a_presentation_after_a_grade_froze_its_contract_saves_the_revision_it_showed`
+  - `test_an_answer_whose_contract_cites_an_unsaved_held_revision_is_withheld`
 - [tests/test_anti_double_count.py](../../../../../../tests/test_anti_double_count.py) — direct import
 - [tests/test_append_split_passes.py](../../../../../../tests/test_append_split_passes.py) — direct import
   - `test_each_pass_is_its_own_paid_request_under_the_appends_limits`
@@ -2124,7 +2126,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f6_a_question_retargeted_by_a_later_reading_is_observed_at_the_reading`
   - `test_f8_a_diagnosis_no_longer_scans_stuck_answers`
 - [tests/test_lesson_answer_turns.py](../../../../../../tests/test_lesson_answer_turns.py) — direct import
+  - `test_a_budget_refused_check_answer_is_saved_unassessed_with_the_close`
   - `test_a_lesson_check_answer_turn_commits_with_its_grade`
+  - `test_a_retry_of_a_stranded_check_answer_turn_appends_no_second`
 - [tests/test_lesson_grade_forecast.py](../../../../../../tests/test_lesson_grade_forecast.py) — direct import
   - `test_lesson_forecast_is_prepared_once_outside_the_writer`
   - `test_withdrawal_during_preparation_discards_the_losing_grade`

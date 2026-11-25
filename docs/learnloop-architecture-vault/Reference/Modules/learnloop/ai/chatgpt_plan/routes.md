@@ -105,6 +105,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/test_activity_backfill.py](../../../../../../../tests/test_activity_backfill.py) — imports consumer [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]]
 - [tests/test_apply_recovery.py](../../../../../../../tests/test_apply_recovery.py) — imports consumer [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]]
 - [tests/test_apply_write_ahead.py](../../../../../../../tests/test_apply_write_ahead.py) — imports consumer [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]]
 - [tests/test_assessment_enforcement.py](../../../../../../../tests/test_assessment_enforcement.py) — imports consumer [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]]
@@ -116,7 +117,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_contrast_pairs.py](../../../../../../../tests/test_contrast_pairs.py) — imports consumer [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]]
 - [tests/test_diagnosis_pipeline.py](../../../../../../../tests/test_diagnosis_pipeline.py) — imports consumer [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]]
 - [tests/test_discrimination_profiles.py](../../../../../../../tests/test_discrimination_profiles.py) — imports consumer [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]]
-- [tests/test_doctor.py](../../../../../../../tests/test_doctor.py) — imports consumer [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]]
 
 ## Modification guidance
 

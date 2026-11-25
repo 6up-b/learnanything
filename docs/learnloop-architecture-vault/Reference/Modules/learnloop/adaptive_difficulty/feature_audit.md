@@ -118,7 +118,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]] — imports `audit_revision`, `item_revision`; statically calls `audit_revision`, `item_revision`
 - [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] — imports `item_revision`; statically calls `item_revision`
 - [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]] — imports `item_revision`; statically calls `item_revision`
-- [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `item_revision`; statically calls `item_revision`
+- [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `item_revision`
 - [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]] — imports `item_revision`; statically calls `item_revision`
 - [[Reference/Modules/learnloop/adaptive_difficulty/predict|learnloop.adaptive_difficulty.predict]] — imports `item_revision`; statically calls `item_revision`
 - [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] — imports `item_revision`; statically calls `item_revision`
@@ -210,6 +210,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_serve_inputs_frozen_against_later_audit_and_edit`
   - `test_the_decider_switch_off_audits_with_the_llm_only`
 - [tests/test_answered_revision_protection.py](../../../../../../tests/test_answered_revision_protection.py) — direct import
+  - `test_a_plan_answer_to_a_held_out_served_revision_writes_no_grade_receipt`
+  - `test_a_presentation_after_a_grade_froze_its_contract_saves_the_revision_it_showed`
 - [tests/test_epp_prediction_snapshots.py](../../../../../../tests/test_epp_prediction_snapshots.py) — direct import
   - `test_a_protected_revision_withholds_the_receipts_whose_snapshot_names_it`
   - `test_threshold_and_in_process_receipts_state_their_cutoff_target_and_provenance`

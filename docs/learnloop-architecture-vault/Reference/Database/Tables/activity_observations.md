@@ -93,6 +93,7 @@ Indexes and uniqueness:
 
 - `Repository.active_interpretation_for_observation()`
 - `Repository.answer_grade_records()`
+- `Repository.first_live_observation_by_attempt_type()`
 - `Repository.insert_activity_observation()`
 - `Repository.observation_attempt_id()`
 - `Repository.observation_by_attempt()`

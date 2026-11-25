@@ -382,6 +382,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_learner_text_gaps_review.py](../../../../../../tests/test_learner_text_gaps_review.py) — direct import
   - `test_f2_a_refused_draft_is_deferred_not_logged_unmatched`
   - `test_f2_a_spend_stop_leaves_both_texts_queued_and_stops_the_run`
+- [tests/test_lesson_answer_turns.py](../../../../../../tests/test_lesson_answer_turns.py) — direct import
 - [tests/test_marker_pdfium_worker.py](../../../../../../tests/test_marker_pdfium_worker.py) — direct import
   - `test_a_cancelled_import_stops_the_marker_worker`
   - `test_every_process_the_marker_worker_started_ends_with_its_reading`

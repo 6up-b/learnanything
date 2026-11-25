@@ -70,7 +70,7 @@ For system intent, use [[State and Persistence]], [[Configuration]].
 | [[Reference/Modules/learnloop/ops/content_fixes|learnloop.ops.content_fixes]] | [[Reference/Modules/learnloop/ops/content_fixes#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/ops/debug_time|learnloop.ops.debug_time]] | [[Reference/Modules/learnloop/ops/debug_time#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/ops/debug_time_store|learnloop.ops.debug_time_store]] | [[Reference/Modules/learnloop/ops/debug_time_store#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] | [[Reference/Modules/learnloop/ops/doctor#^module-purpose|purpose]] | `ACTIVE` | 2 | 42 |
+| [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] | [[Reference/Modules/learnloop/ops/doctor#^module-purpose|purpose]] | `ACTIVE` | 2 | 43 |
 | [[Reference/Modules/learnloop/ops/embedding_backfill|learnloop.ops.embedding_backfill]] | [[Reference/Modules/learnloop/ops/embedding_backfill#^module-purpose|purpose]] | `ACTIVE` | 13 | 22 |
 | [[Reference/Modules/learnloop/ops/embedding_compare|learnloop.ops.embedding_compare]] | [[Reference/Modules/learnloop/ops/embedding_compare#^module-purpose|purpose]] | `ACTIVE` | 3 | 11 |
 | [[Reference/Modules/learnloop/ops/family_proposals|learnloop.ops.family_proposals]] | [[Reference/Modules/learnloop/ops/family_proposals#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
@@ -99,14 +99,14 @@ For system intent, use [[State and Persistence]], [[Configuration]].
 
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 42 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 41 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 25 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 26 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 21 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 17 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 14 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 10 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 9 static module edges
+- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 6 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 6 static module edges
-- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 5 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 5 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 4 static module edges
@@ -162,7 +162,7 @@ flowchart LR
     center -->|42| n_learnloop_ai
     center -->|41| n_learnloop_vault
     n_learnloop -->|1| center
-    center -->|25| n_learnloop
+    center -->|26| n_learnloop
     center -->|21| n_learnloop_db
     n_learnloop_cli -->|18| center
     center -->|17| n_learnloop_db_stores

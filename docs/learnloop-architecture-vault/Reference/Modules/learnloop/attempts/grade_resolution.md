@@ -187,6 +187,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_contest_flag_survives_rebuilds`
   - `test_a_projection_version_change_reinterprets_once`
 - [tests/test_rebuild_writes_no_grade_record.py](../../../../../../tests/test_rebuild_writes_no_grade_record.py) — direct import
+  - `test_a_repair_whose_grading_run_is_gone_keeps_the_answer_visible`
+  - `test_a_repaired_blind_grade_is_the_one_the_live_write_makes`
+  - `test_a_sitting_answer_whose_own_grade_record_failed_stays_visible`
 - [tests/test_reference_gate_imports.py](../../../../../../tests/test_reference_gate_imports.py) — direct import
   - `test_a_key_based_adjudication_is_bound_like_a_regrade`
 - [tests/test_regrade_contract_successor.py](../../../../../../tests/test_regrade_contract_successor.py) — direct import

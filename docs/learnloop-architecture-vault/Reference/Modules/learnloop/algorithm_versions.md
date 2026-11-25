@@ -402,6 +402,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_data_capture_a2_measurement.py](../../../../../tests/test_data_capture_a2_measurement.py) — direct import
 - [tests/test_data_capture_a5_not_ready_floor.py](../../../../../tests/test_data_capture_a5_not_ready_floor.py) — direct import
 - [tests/test_data_capture_a6_delayed_pick.py](../../../../../tests/test_data_capture_a6_delayed_pick.py) — direct import
+  - `test_a_retention_forecasts_item_answered_before_commitment_is_marked_on_the_commitment`
   - `test_each_landed_nodes_retention_forecast_targets_the_item_it_is_committed`
   - `test_from_the_label_retirement_an_los_items_tie_and_the_pick_draws`
   - `test_two_landed_nodes_on_one_lo_draw_their_checks_from_their_own_seeds`

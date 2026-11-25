@@ -114,6 +114,7 @@ Indexes and uniqueness:
 - `tests/test_held_grade_evidence.py`
 - `tests/test_one_instant_per_grade.py`
 - `tests/test_post_attempt_pipeline.py`
+- `tests/test_rebuild_writes_no_grade_record.py`
 - `tests/test_required_method_round3_review.py`
 - `tests/test_exam_calibration.py`
 - `tests/test_exam_protection_review.py`

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/surprise.py](../../../../../../src/learnloop/attempts/surprise.py) |
-| Source lines | 229 |
+| Source lines | 230 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -58,8 +58,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
   - `as_record(self, attempt_id: str, algorithm_version: str, created_at: str) -> dict[str, object]` (line 35; public)
 - `compute_observation_variance(observation: MasteryObservation, config: LearnLoopConfig) -> float` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 53) — Legacy logit-space observation variance (used when IRT is disabled).
 - `compute_surprise(*, prior: MasteryState, posterior: MasteryState, observation: MasteryObservation, observed_error_type: str | None, prior_active_errors: list[ActiveErrorEvent], config: LearnLoopConfig, item_a: float=1.0, item_b: float=0.0, forecast: Any=None, priming_offset: float=0.0, record_source: bool=False, direct: bool=False) -> SurpriseResult` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 66) — ``forecast`` (a :class:`~learnloop.attempts.surprise_forecast.SurpriseForecast`, from the label's retirement): adaptive difficulty's ``p̄`` made before the answer, which the predictive part is scored against (its innovation, variance and direction around ``b' = μ_prior − logit(p…
-- `predicted_error_type_distribution(prior_active_errors: list[ActiveErrorEvent], *, observed_at: datetime) -> dict[str, float]` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 204)
-- `score_bucket(rubric_score: int, max_points: int=4) -> str` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 223)
+- `predicted_error_type_distribution(prior_active_errors: list[ActiveErrorEvent], *, observed_at: datetime) -> dict[str, float]` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 205)
+- `score_bucket(rubric_score: int, max_points: int=4) -> str` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 224)
 
 ## Internal implementation anchors
 

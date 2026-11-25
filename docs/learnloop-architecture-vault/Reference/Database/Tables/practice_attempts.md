@@ -136,6 +136,7 @@ Database triggers:
 - `Repository.attempt_count()`
 - `Repository.attempt_count_for_learning_objects()`
 - `Repository.attempt_innovation_samples()`
+- `Repository.attempt_of_type_on_date()`
 - `Repository.attempt_regrade_marker()`
 - `Repository.attempted_practice_item_ids()`
 - `Repository.attempts_pending_clarification_review()`
@@ -150,6 +151,7 @@ Database triggers:
 - `Repository.fetch_practice_attempt()`
 - `Repository.find_attempt_id_by_evidence_agent_run()`
 - `Repository.find_record()`
+- `Repository.first_live_observation_by_attempt_type()`
 - `Repository.followup_source_attempt()`
 - `Repository.insert_blind_grade_record()`
 - `Repository.is_score_only_exam_import()`

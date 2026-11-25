@@ -109,6 +109,7 @@ Indexes and uniqueness:
 - `Repository.fetch_administration()`
 - `Repository.first_cold_observation_for_target()`
 - `Repository.first_live_administration_at()`
+- `Repository.first_live_observation_by_attempt_type()`
 - `Repository.insert_legacy_administration()`
 - `Repository.open_administration_atomic()`
 - `Repository.set_administration_context()`

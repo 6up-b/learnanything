@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/goals/exam_seeding.py](../../../../../../src/learnloop/goals/exam_seeding.py) |
-| Source lines | 499 |
+| Source lines | 497 |
 | Owning package | [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -66,7 +66,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `parse_exam_outcomes(payload: Mapping[str, Any], *, exam_date_override: str | None=None) -> ExamOutcomesFile` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 181) — Parse an outcomes file payload.
 - `exam_question_from_tags(item: PracticeItem) -> str | None` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 256)
 - `find_exam_items(vault: LoadedVault, *, subject: str | None=None) -> dict[str, PracticeItem]` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 265) — Map exam question number -> practice item (tagged ``exam_q:<n>``).
-- `seed_exam_attempts(vault: LoadedVault, repository: Repository, *, outcomes: ExamOutcomesFile, subject: str | None=None, dry_run: bool=False, clock: Clock | None=None) -> ExamSeedingResult` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 302) — Seed backdated ``exam_evidence`` attempts from per-question outcomes.
+- `seed_exam_attempts(vault: LoadedVault, repository: Repository, *, outcomes: ExamOutcomesFile, subject: str | None=None, dry_run: bool=False, clock: Clock | None=None) -> ExamSeedingResult` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 299) — Seed backdated ``exam_evidence`` attempts from per-question outcomes.
 
 ### Module constants
 
@@ -79,7 +79,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - `_validated_score(question: str, value: Any) -> float` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 246)
 - `_question_sort_key(question: str) -> tuple[int, float | str, str]` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 285)
-- `_has_exam_attempt_on_date(repository: Repository, practice_item_id: str, exam_date: date) -> bool` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 292)
+- `_imported_exam_attempt(repository: Repository, practice_item_id: str, exam_date: date) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 292) — The answer an earlier import of this exam wrote for the item, found by its durable import identity (the item, the import's attempt type, the exam date), however many answers the item has had since.
 
 ## Who imports or calls it
 
@@ -128,6 +128,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_startup_regrades_real_answers_but_leaves_score_only_exam_import`
 - [tests/test_evidence_reading_successor.py](../../../../../../tests/test_evidence_reading_successor.py) — direct import
 - [tests/test_exam_seeding.py](../../../../../../tests/test_exam_seeding.py) — direct import
+  - `test_a_retried_import_finds_its_answers_by_their_import_identity_and_replays_their_own_object`
   - `test_a_retried_import_replays_the_object_it_already_wrote`
   - `test_dry_run_writes_nothing`
   - `test_exam_date_required_when_absent_everywhere`

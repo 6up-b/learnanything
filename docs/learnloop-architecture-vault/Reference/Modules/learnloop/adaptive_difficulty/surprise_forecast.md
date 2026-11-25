@@ -129,6 +129,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/ad23_contract_helpers.py](../../../../../../tests/ad23_contract_helpers.py) — direct import
 - [tests/test_difficulty_receipt_arms.py](../../../../../../tests/test_difficulty_receipt_arms.py) — direct import
   - `test_arm_f_matches_production_with_all_three_receipt_sources`
 - [tests/test_lesson_grade_forecast.py](../../../../../../tests/test_lesson_grade_forecast.py) — direct import

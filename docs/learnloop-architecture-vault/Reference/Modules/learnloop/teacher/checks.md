@@ -143,6 +143,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_data_capture_a6_delayed_pick.py](../../../../../../tests/test_data_capture_a6_delayed_pick.py) — direct import
+  - `test_a_retention_forecasts_item_answered_before_commitment_is_marked_on_the_commitment`
   - `test_each_landed_nodes_retention_forecast_targets_the_item_it_is_committed`
   - `test_the_lessons_forecast_reference_is_the_item_the_check_would_commit`
 - [tests/test_difficulty_kinds_apart.py](../../../../../../tests/test_difficulty_kinds_apart.py) — direct import

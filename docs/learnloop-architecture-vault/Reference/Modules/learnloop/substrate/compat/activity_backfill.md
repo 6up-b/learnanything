@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/compat/activity_backfill.py](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py) |
-| Source lines | 464 |
+| Source lines | 549 |
 | Owning package | [[Reference/Modules/learnloop/substrate/compat/_package|learnloop.substrate.compat]] |
 | Architecture layer | `domain` |
 | Refactor status | `COMPAT` |
@@ -58,26 +58,37 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 
 ## Public API
 
-- `class BackfillReport` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 55)
-  - `as_dict(self) -> dict[str, Any]` (line 73; public)
-- `substrate_began_at(repository: Repository) -> datetime | None` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 90) — The instant the activity substrate existed from: the vault's first administration written live (the backfill's own are marked ``legacy_backfilled``), in the clock the vault's own rows are dated by.
-- `predates_substrate(recorded_at: str | None, began: datetime | None) -> bool` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 98) — Whether a row recorded at ``recorded_at`` is history from before the substrate (see :func:`substrate_began_at`).
-- `answers_without_grade_record(vault: LoadedVault, repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 113) — Answers recorded after the substrate existed whose grade record (the one ``apply_attempt``'s grade channel writes) is incomplete: no observation, or an observation with no raw grade (the write failed after it minted the identity).
-- `backfill_activity_substrate(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> BackfillReport` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 152) — Backfill migration-065 tables from the vault + legacy SQL (§7.1 steps 1-4).
+- `class BackfillReport` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 59)
+  - `as_dict(self) -> dict[str, Any]` (line 82; public)
+- `substrate_began_at(repository: Repository) -> datetime | None` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 99) — The instant the activity substrate existed from: the vault's first administration written live (the backfill's own are marked ``legacy_backfilled``), in the clock the vault's own rows are dated by.
+- `answer_writer(attempt_type: str) -> str` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 111) — The door that records an answer's grade record live: ordinary practice (``apply_attempt``'s grade channel, every type it applies), a probe's (``diagnostic``), or an exam's, where a sitting and an import are separate doors (their attempt types).
+- `class SubstrateCutovers` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 124) — When each writer of the substrate began recording, by the vault's stored facts (see the module docstring).
+  - `answer_predates(self, attempt_type: str, recorded_at: str | None) -> bool` (line 134; public) — Whether an answer is history from before its writer recorded (backfilled; replay may record its grade).
+  - `answer_before_its_writer(self, attempt_type: str, recorded_at: str | None) -> bool` (line 141; public) — History only by its writer's record: recorded after the vault's first live administration, before its writer's first live answer.
+  - `writer_never_recorded(self, attempt_type: str) -> bool` (line 147; public) — The vault wrote the substrate live, but never an answer of this writer's.
+  - `presentation_predates(self, recorded_at: str | None) -> bool` (line 152; public)
+- `substrate_cutovers(repository: Repository) -> SubstrateCutovers` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 158) — The writers' cutovers, read from the stored rows (before a backfill writes: its own rows never move them).
+- `predates_substrate(recorded_at: str | None, began: datetime | None) -> bool` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 170) — Whether a row recorded at ``recorded_at`` is history from before the substrate (see :func:`substrate_began_at`).
+- `answers_without_grade_record(vault: LoadedVault, repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 185) — Answers recorded after the substrate existed whose grade record (the one ``apply_attempt``'s grade channel writes) is incomplete: no observation, or an observation with no raw grade (the write failed after it minted the identity).
+- `backfill_activity_substrate(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> BackfillReport` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 233) — Backfill migration-065 tables from the vault + legacy SQL (§7.1 steps 1-4).
+
+### Module constants
+
+- `SITTING_ATTEMPT_TYPE` ([src/learnloop/substrate/compat/activity_backfill.py](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 108)
 
 ## Internal implementation anchors
 
-- `_purpose_for_attempt_type(attempt_type: str) -> str` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 82)
-- `_clock_at(iso: str | None) -> Clock` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 145)
+- `_purpose_for_attempt_type(attempt_type: str) -> str` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 91)
+- `_clock_at(iso: str | None) -> Clock` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 226)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `answers_without_grade_record`; statically calls `answers_without_grade_record`
+- [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `SITTING_ATTEMPT_TYPE`, `answers_without_grade_record`; statically calls `answers_without_grade_record`
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `answers_without_grade_record`, `backfill_activity_substrate`; statically calls `answers_without_grade_record`, `backfill_activity_substrate`
-- [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] — imports `predates_substrate`, `substrate_began_at`; statically calls `predates_substrate`, `substrate_began_at`
+- [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] — imports `substrate_cutovers`; statically calls `substrate_cutovers`
 
 ## Dependencies
 
@@ -110,8 +121,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_activity_backfill.py](../../../../../../../tests/test_activity_backfill.py) — direct import
+  - `test_a_practice_answer_between_a_live_diagnostic_and_the_practice_writers_first_record_is_history`
+  - `test_an_answer_whose_writer_never_recorded_live_is_reported_with_unknown_provenance`
   - `test_backfill_is_idempotent_on_fixture_copy`
-  - `test_backfill_logs_attempt_duration_interaction_events`
   - `test_backfill_marks_unverifiable_for_missing_item`
   - `test_backfill_populates_substrate_from_fixture`
   - `test_backfill_render_once_per_shared_surface`
@@ -123,6 +135,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rebuild_writes_no_grade_record.py](../../../../../../../tests/test_rebuild_writes_no_grade_record.py) — direct import
   - `test_a_rebuild_leaves_a_degraded_grade_unrecorded_and_doctor_repairs_it`
   - `test_a_regrade_is_an_explicit_revision_and_records_the_missing_grade`
+  - `test_a_repaired_blind_grade_is_the_one_the_live_write_makes`
+  - `test_a_sitting_answer_whose_own_grade_record_failed_stays_visible`
 - [tests/test_replay_writes_no_ledger.py](../../../../../../../tests/test_replay_writes_no_ledger.py) — direct import
   - `test_history_from_before_the_substrate_is_backfilled_once`
 

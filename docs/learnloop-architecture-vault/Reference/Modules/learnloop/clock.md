@@ -674,6 +674,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/teacher_te2log_receipt_helpers.py](../../../../../tests/teacher_te2log_receipt_helpers.py) — direct import
 - [tests/test_action_loss.py](../../../../../tests/test_action_loss.py) — direct import
 - [tests/test_activity_backfill.py](../../../../../tests/test_activity_backfill.py) — direct import
+  - `test_backfill_logs_attempt_duration_for_a_pre_substrate_attempt_of_a_live_vault`
 - [tests/test_activity_contract_extensions.py](../../../../../tests/test_activity_contract_extensions.py) — direct import
 - [tests/test_activity_patterns.py](../../../../../tests/test_activity_patterns.py) — direct import
 - [tests/test_activity_substrate.py](../../../../../tests/test_activity_substrate.py) — direct import
@@ -720,6 +721,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_loader_reads_the_tap_and_the_graders_tone_reading`
 - [tests/test_answered_revision_protection.py](../../../../../tests/test_answered_revision_protection.py) — direct import
   - `test_a_presentation_after_a_grade_froze_its_contract_saves_the_revision_it_showed`
+  - `test_an_answer_whose_contract_cites_an_unsaved_held_revision_is_withheld`
 - [tests/test_anti_double_count.py](../../../../../tests/test_anti_double_count.py) — direct import
   - `test_anti_double_count_claim_seeds_prior_but_earns_no_mass`
   - `test_anti_double_count_projection_signal_earns_zero_certification`
@@ -1008,6 +1010,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_data_capture_a3_time_metric.py](../../../../../tests/test_data_capture_a3_time_metric.py) — direct import
   - `test_enrollment_is_the_learners_commitment_and_a_system_dated_check_is_none`
 - [tests/test_data_capture_a6_delayed_pick.py](../../../../../tests/test_data_capture_a6_delayed_pick.py) — direct import
+  - `test_a_retention_forecasts_item_answered_before_commitment_is_marked_on_the_commitment`
   - `test_commit_checks_carry_the_delayed_check_receipt_fields`
   - `test_each_landed_nodes_retention_forecast_targets_the_item_it_is_committed`
   - `test_the_lessons_forecast_reference_is_the_item_the_check_would_commit`
@@ -1105,6 +1108,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_evsi_router_composition.py](../../../../../tests/test_evsi_router_composition.py) — direct import
 - [tests/test_exam_finish_doors.py](../../../../../tests/test_exam_finish_doors.py) — direct import
   - `test_a_pending_answer_accepted_while_finish_runs_keeps_the_sitting_open`
+  - `test_a_second_grade_of_the_same_answer_neither_replaces_the_first_nor_clears_its_link`
   - `test_an_answer_accepted_while_finish_runs_is_applied_before_the_sitting_completes`
   - `test_an_answers_failed_completion_work_is_resumed_by_the_next_finish`
 - [tests/test_exam_pool.py](../../../../../tests/test_exam_pool.py) — direct import
@@ -1528,7 +1532,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f13_the_pipeline_switched_off_queues_exactly_as_the_predecessor_version`
   - `test_f4_without_a_grounded_subject_only_the_anchors_are_judged_and_nothing_is_created`
 - [tests/test_lesson_answer_turns.py](../../../../../tests/test_lesson_answer_turns.py) — direct import
+  - `test_a_budget_refused_check_answer_is_saved_unassessed_with_the_close`
   - `test_a_lesson_check_answer_turn_commits_with_its_grade`
+  - `test_a_retry_of_a_stranded_check_answer_turn_appends_no_second`
 - [tests/test_lesson_outcome_assessed.py](../../../../../tests/test_lesson_outcome_assessed.py) — direct import
 - [tests/test_lesson_weight_facts.py](../../../../../tests/test_lesson_weight_facts.py) — direct import
   - `test_a_check_is_stamped_under_the_writer_lock`
@@ -1613,6 +1619,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_valid_template_registers_and_loads`
 - [tests/test_one_instant_per_grade.py](../../../../../tests/test_one_instant_per_grade.py) — direct import
   - `test_a_grade_reads_the_clock_once_for_its_instant_and_a_rebuild_reproduces_it`
+  - `test_a_legacy_sitting_answered_in_reverse_applies_in_its_replay_order`
+  - `test_an_ordinary_grade_interleaved_with_a_legacy_finish_replays_where_it_was_applied`
   - `test_exam_finish_dates_no_answer_ahead_of_now_and_replay_orders_them_as_applied`
 - [tests/test_open_world_gate.py](../../../../../tests/test_open_world_gate.py) — direct import
 - [tests/test_originals_store.py](../../../../../tests/test_originals_store.py) — direct import
@@ -1848,6 +1856,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_rebuild_that_changes_no_value_re_stamps_no_cell`
   - `test_content_recalibration_replay_cannot_lose_its_ingest_lease_midway`
   - `test_the_direct_replay_stamps_its_closing_projection_with_the_clock_it_was_given`
+- [tests/test_rebuild_writes_no_grade_record.py](../../../../../tests/test_rebuild_writes_no_grade_record.py) — direct import
+  - `test_a_sitting_answer_whose_own_grade_record_failed_stays_visible`
 - [tests/test_recall_coverage_interventions.py](../../../../../tests/test_recall_coverage_interventions.py) — direct import
   - `test_bad_item_suspicion_uses_prior_snapshot_not_current_attempt_update`
   - `test_blank_independent_attempt_is_damped_and_flagged_for_manual_review`

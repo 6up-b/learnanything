@@ -67,7 +67,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] | [[Reference/Modules/learnloop/goals/exam_pool#^module-purpose|purpose]] | `ACTIVE` | 6 | 20 |
 | [[Reference/Modules/learnloop/goals/exam_readiness|learnloop.goals.exam_readiness]] | [[Reference/Modules/learnloop/goals/exam_readiness#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/goals/exam_seeding|learnloop.goals.exam_seeding]] | [[Reference/Modules/learnloop/goals/exam_seeding#^module-purpose|purpose]] | `ACTIVE` | 2 | 9 |
-| [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] | [[Reference/Modules/learnloop/goals/exam_session#^module-purpose|purpose]] | `ACTIVE` | 3 | 11 |
+| [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] | [[Reference/Modules/learnloop/goals/exam_session#^module-purpose|purpose]] | `ACTIVE` | 3 | 12 |
 | [[Reference/Modules/learnloop/goals/forecast_ledger|learnloop.goals.forecast_ledger]] | [[Reference/Modules/learnloop/goals/forecast_ledger#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/goals/goal_certification|learnloop.goals.goal_certification]] | [[Reference/Modules/learnloop/goals/goal_certification#^module-purpose|purpose]] | `ACTIVE` | 12 | 7 |
 | [[Reference/Modules/learnloop/goals/goal_contracts|learnloop.goals.goal_contracts]] | [[Reference/Modules/learnloop/goals/goal_contracts#^module-purpose|purpose]] | `ACTIVE` | 10 | 5 |
@@ -85,8 +85,8 @@ For system intent, use [[Learning System]].
 ### This package imports
 
 - [[Reference/Modules/learnloop/_package|learnloop]] — 23 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 17 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 17 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 16 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 14 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 9 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 6 static module edges
@@ -131,8 +131,8 @@ flowchart LR
     n_learnloop["learnloop"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_learner["learnloop.learner"]
-    n_learnloop_vault["learnloop.vault"]
     n_learnloop_db["learnloop.db"]
+    n_learnloop_vault["learnloop.vault"]
     n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_attempts["learnloop.attempts"]
@@ -142,8 +142,8 @@ flowchart LR
     n_learnloop_sidecar_handlers -->|23| center
     n_learnloop_learner -->|6| center
     center -->|14| n_learnloop_learner
+    center -->|17| n_learnloop_db
     center -->|17| n_learnloop_vault
-    center -->|16| n_learnloop_db
     n_learnloop_substrate -->|2| center
     center -->|9| n_learnloop_substrate
     n_learnloop_scheduling -->|5| center

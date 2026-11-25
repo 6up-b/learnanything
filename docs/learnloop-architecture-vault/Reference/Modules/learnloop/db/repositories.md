@@ -754,6 +754,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_action_loss.py](../../../../../../tests/test_action_loss.py) — direct import
   - `test_durations_fall_back_to_logged_pooled_then_heuristic`
 - [tests/test_activity_backfill.py](../../../../../../tests/test_activity_backfill.py) — direct import
+  - `test_backfill_logs_attempt_duration_for_a_pre_substrate_attempt_of_a_live_vault`
 - [tests/test_activity_contract_extensions.py](../../../../../../tests/test_activity_contract_extensions.py) — direct import
 - [tests/test_activity_families.py](../../../../../../tests/test_activity_families.py) — direct import
   - `test_learner_edit_during_family_publication_is_not_lost`
@@ -954,6 +955,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_answered_revision_protection.py](../../../../../../tests/test_answered_revision_protection.py) — direct import
   - `test_a_plan_answer_to_a_held_out_served_revision_writes_no_grade_receipt`
   - `test_a_presentation_after_a_grade_froze_its_contract_saves_the_revision_it_showed`
+  - `test_an_answer_whose_contract_cites_an_unsaved_held_revision_is_withheld`
 - [tests/test_anti_double_count.py](../../../../../../tests/test_anti_double_count.py) — direct import
 - [tests/test_apply_recovery.py](../../../../../../tests/test_apply_recovery.py) — direct import
   - `test_the_apply_recalibrates_before_it_marks_the_intent_applied`

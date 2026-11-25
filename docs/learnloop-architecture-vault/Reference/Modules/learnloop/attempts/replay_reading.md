@@ -87,7 +87,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `replaced_exam_purpose`, `replayed_grader_confidence`, `replayed_grading_source`, `withholds_review_as_variant_request`; statically calls `replaced_exam_purpose`, `replayed_grader_confidence`, `replayed_grading_source`, `withholds_review_as_variant_request`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `MODEL_GRADING_SOURCES`, `replaced_exam_purpose`, `replayed_grader_confidence`, `replayed_grading_source`, `withholds_review_as_variant_request`; statically calls `replaced_exam_purpose`, `replayed_grader_confidence`, `replayed_grading_source`, `withholds_review_as_variant_request`
 
 ## Dependencies
 

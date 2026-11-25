@@ -160,6 +160,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/teacher_te2_probes_helpers.py](../../../../../../../tests/teacher_te2_probes_helpers.py) — direct import
 - [tests/teacher_te2log_receipt_helpers.py](../../../../../../../tests/teacher_te2log_receipt_helpers.py) — direct import
 - [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
+- [tests/test_lesson_answer_turns.py](../../../../../../../tests/test_lesson_answer_turns.py) — direct import
+  - `test_a_retry_of_a_stranded_check_answer_turn_appends_no_second`
 - [tests/test_lesson_grade_forecast.py](../../../../../../../tests/test_lesson_grade_forecast.py) — direct import
   - `test_withdrawal_during_preparation_discards_the_losing_grade`
 - [tests/test_te3a_lesson_opportunity.py](../../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
