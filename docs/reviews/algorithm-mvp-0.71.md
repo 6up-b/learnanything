@@ -295,6 +295,14 @@ The seam guards are in `tests/test_difficulty_kinds_apart.py` and `tests/test_it
     and 0 failed;
   - pins, ratchets, architecture, layout, pinned draws and migrations: 438 passed;
   - the two gates collect every test once (34733: landing 34667 and arc close 66).
+- **On the merged, renumbered tip (origin/main `604f17b706` at `473005e9c9`, the tag mvp-0.71):**
+  - the affected set by import over the branch's source and tests (1511 files), plus every test file that reaches the
+    daily plan, the objective, measurement, the teacher or the pinned draws, plus the upgrades, CLI surface, replay
+    guards, migrations, tie guard, pins, ratchets, architecture, layout and owner-copy counts tests: 1528 files in
+    eleven chunks, 32,867 passed;
+  - the one failure: `test_coordinated_migrations.py` refused the counts script's `Repository(path)`. The script now
+    attaches read only, without migrating; that file and the counts test then passed, 22 of 22;
+  - the two gates collect every test once (34769: landing 34703 and arc close 66).
 - **Lint:** ruff clean; lint-imports 55 kept, 0 broken.
 - **Not run here:** the whole landing gate and the arc-close gate in one piece, and the durability lane.
 

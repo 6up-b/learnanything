@@ -36,6 +36,7 @@ def test_the_counts_before_and_after_the_upgrade_and_their_comparison(tmp_path, 
     assert script.main(["snapshot", str(after_root), "--as-of", AS_OF, "--out", str(private / "b.json")]) == 0
     after = json.loads(capsys.readouterr().out)
     assert (file_digests(before_paths.root), file_digests(after_root)) == digests
+    assert json.loads((private / "a.json").read_text())["state"]["queue"], "the queue was read"
 
     assert before["algorithm_version"] == PROBE_ROUTER_ALGORITHM_VERSION and before["grade_time_receipts"] == 0
     assert before["surprise_by_source"] == {"none (below the tag)": len(HISTORY)}

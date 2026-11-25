@@ -82,7 +82,8 @@ def snapshot(vault_copy: Path, *, as_of: str | None, out: Path) -> dict[str, Any
     before = _digests(vault_copy)
     vault = load_vault(vault_copy)
     sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
-    state = four_way.read_replayed(vault, Repository(sqlite_path), as_of=four_way._as_of(as_of))
+    # Attached read only, without migrating: the copy is read as it stands.
+    state = four_way.read_replayed(vault, Repository.attach(sqlite_path, read_only=True), as_of=four_way._as_of(as_of))
     counts = _counts(sqlite_path)
     if _digests(vault_copy) != before:
         raise RuntimeError("the copy's databases changed while it was read")
