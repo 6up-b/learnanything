@@ -16,6 +16,13 @@ The successor of mvp-0.75 for the review-round-3 fixes that change what is deriv
   without a record (below the facts' tag, or a malformed one) is read as before. Test:
   `tests/test_lesson_outcome_assessed.py::test_an_unapplied_answer_resolves_no_lesson_check_from_the_tag` (both sides
   of the tag).
+- FR3-16 (class 8): without mastery's IRT link, the forecast surprise is scored against is clipped by the configured
+  `mastery.irt.p_clip` once, after a primed answer's shift (`forecast_clipped_after_shift`), and the residual and
+  `p_scored` read that one probability, as the IRT link already did. Up to mvp-0.75 an interior forecast outside the
+  clip (0.95 at a clip of 0.10) was scored unclipped. Changes stored surprise (`attempt_surprise`) only on a vault with
+  `mastery.irt.enabled = false` and a forecast beyond the clip. Test:
+  `tests/test_surprise_forecast_scoring.py::test_without_the_irt_link_the_configured_clip_holds_after_the_priming_shift_from_the_tag`
+  (both sides of the tag).
 
 ## Fixed without the tag
 

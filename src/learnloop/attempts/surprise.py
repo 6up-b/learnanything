@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from math import exp, log, pi, sqrt
 from typing import Any
 
+from learnloop.algorithm_versions import forecast_clipped_after_shift
 from learnloop.clock import parse_utc
 from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import MasteryState
@@ -132,7 +133,12 @@ def compute_surprise(
             # Without the IRT link the observation is a logit score: surprise is centred on the forecast's logit
             # (a primed answer's offset added) instead of mastery's mean; the mastery update and the interval factor
             # keep mastery's residual.
-            centre = _open_logit(float(forecast.p), config.mastery.irt.p_clip) + priming_offset
+            clip = config.mastery.irt.p_clip
+            centre = _open_logit(float(forecast.p), clip) + priming_offset
+            if forecast_clipped_after_shift(config.algorithms.algorithm_version):
+                # The configured clip once, after the shift (as the IRT link's ``irt_observation_at``): the residual
+                # and ``p_scored`` read the same probability.
+                centre = logit(clamp(sigmoid(centre), clip, 1.0 - clip))
             residual = (z_obs - centre) / sqrt(predictive_variance)
             scored = {"prediction_source": forecast.source, "receipt_key": forecast.receipt_key,
                       "forecaster": forecast.forecaster, "p_ad": float(forecast.p), "p_scored": sigmoid(centre)}

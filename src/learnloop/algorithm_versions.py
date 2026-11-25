@@ -1387,6 +1387,14 @@ def unapplied_answers_resolve_nothing(algorithm_version: str | None) -> bool:
     return algorithm_version in OUTCOME_FIXES_VERSIONS
 
 
+def forecast_clipped_after_shift(algorithm_version: str | None) -> bool:
+    """Without mastery's IRT link, the forecast surprise is scored against is clipped by the configured clip once,
+    after a primed answer's shift, as the IRT link already does (mvp-0.76, FR3-16); below it mvp-0.73's unclipped
+    centre exactly. Takes the vault's tag."""
+
+    return algorithm_version in OUTCOME_FIXES_VERSIONS
+
+
 def mastery_facts_recorded(algorithm_version: str | None) -> bool:
     """Mastery records each application's facts, observed at whole seconds, and the lesson-weight fit and every
     reader of a lesson outcome read them in one order (the facts' tag); below it mvp-0.73's exactly. Takes the
