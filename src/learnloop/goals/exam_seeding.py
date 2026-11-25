@@ -369,6 +369,11 @@ def seed_exam_attempts(
             continue
         if _has_exam_attempt_on_date(repository, item.id, outcomes.exam_date):
             skipped += 1
+            # Review round 3, FR3-9 / FR3-21: the answer already imported is the durable marker of an import that may
+            # have stopped before its chronological replay (a crash, a fence refusal), so a retry replays its object
+            # too. The replay is derived and idempotent; one that already ran changes nothing.
+            if not dry_run and item.learning_object_id not in affected_learning_objects:
+                affected_learning_objects.append(item.learning_object_id)
             entries.append(
                 ExamSeedEntry(
                     question=question,

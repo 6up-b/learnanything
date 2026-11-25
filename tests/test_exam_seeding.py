@@ -454,3 +454,36 @@ def _insert_attempt(connection, *, attempt_id: str, attempt_type: str, session_i
             session_id,
         ),
     )
+
+
+def test_a_retried_import_replays_the_object_it_already_wrote(tmp_path, monkeypatch):
+    """Review round 3, FR3-9 / FR3-21: an import whose backdated answers committed, the process stopped before the
+    chronological replay (here the replay itself refuses, as a fence refusal or a crash would), is retried: every
+    question is skipped as already imported, and the retry still replays the learning object those answers are on
+    (failed before: nothing new was seeded, so nothing was replayed, and the live state kept the import applied
+    after the later practice it precedes). The answer already committed is the durable marker."""
+
+    from learnloop.goals import exam_seeding
+
+    _vault_root, loaded, repository = _exam_vault(tmp_path)
+    complete_self_graded_attempt(
+        loaded, repository, AttemptDraft(practice_item_id="pi_exam_q1", learner_answer_md="live answer"),
+        SelfGradeInput(criterion_points={"correctness": 4}, confidence=4), clock=FrozenClock(LIVE_NOW),
+    )
+    with monkeypatch.context() as patch:
+        patch.setattr(exam_seeding, "rebuild_derived_state",
+                      lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("stopped before the replay")))
+        with pytest.raises(RuntimeError):
+            seed_exam_attempts(loaded, repository, outcomes=_outcomes())
+    retried = seed_exam_attempts(loaded, repository, outcomes=_outcomes())
+    assert retried.skipped_existing_count == 3 and retried.seeded_count == 0
+    assert retried.rebuilt_learning_object_ids == ["lo_svd_definition"]
+
+    def state():
+        return repository.mastery_state("lo_svd_definition"), {
+            question: repository.practice_item_state(f"pi_exam_q{question}") for question in ("1", "2", "3")}
+
+    live = state()
+    rebuild_derived_state(loaded, repository, learning_object_ids=["lo_svd_definition"])
+    assert state() == live
+    assert live[0].last_evidence_at == "2026-05-19T12:00:00Z"
