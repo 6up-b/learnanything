@@ -277,6 +277,32 @@ def test_compacted_correction_records_one_boundary(tmp_path, nested):
     assert (stats["growth_samples"], stats["input_baseline"]) == (2, 920)
 
 
+@pytest.mark.parametrize("nested", [False, True])
+def test_a_correction_receipt_records_its_own_prompt_estimate(tmp_path, nested):
+    """FR3-18: a rejected structured response is re-sent with a correction appended; each receipt records the request
+    gate's estimate of the prompt it actually sent (nested, its text is withheld from the receipt), so the next
+    forecast measures growth from the correction's own baseline."""
+
+    fake = CountedTeacher([opening, {"message": "Continue."}, {}, close_turn()],
+                          [(1000, 90), (1200, 100), (900, 30), (920, 40)])
+    case = open_case(tmp_path, 1500, fake)
+    vault, repo, lesson = case
+    take(case, fake)
+    with record_model_calls(repo, owner_kind="sidecar_rpc", owner_id="closing"):
+        with model_call(fake, purpose="outer_operation", wrapper=True) if nested else nullcontext():
+            S.take_turn(vault, repo, lesson_id=lesson, action="reply", payload={"text": "Go on."}, clients=clients(fake))
+    first, second = fake.prompts[-2][1], fake.prompts[-1][1]
+    # The correction is the first prompt with the correction appended.
+    assert second.startswith(first) and len(second) > len(first)
+    with repo.connection() as conn:
+        rows = conn.execute("SELECT budget_json, input_text FROM model_call_receipts WHERE owner_id='closing' "
+                            "AND purpose='teacher_turn' ORDER BY rowid").fetchall()
+    assert [row[1] is None for row in rows] == [nested, nested]
+    estimates = [json.loads(row[0])["input_estimate"] for row in rows]
+    assert estimates == [-(-len(first) // _CHARS_PER_TOKEN), -(-len(second) // _CHARS_PER_TOKEN)]
+    assert estimates[1] > estimates[0]
+
+
 def test_a_long_current_reply_after_short_measured_sends_is_forecast(tmp_path):
     """L42-R12: the current prompt is already rendered. A pasted reply that lifts it past the learned growth is
     counted before the output's allowance: the last send's measured input plus the estimated growth of its prompt

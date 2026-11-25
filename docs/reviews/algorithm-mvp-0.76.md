@@ -36,6 +36,10 @@ The successor of mvp-0.75 for the review-round-3 fixes that change what is deriv
   forecast (it was stored at the label retirement, whose writer passed no vault). A live write; a rebuild computes no
   grade receipt, it reads the stored one. Test:
   `tests/test_surprise_reads_ad_forecast.py::test_the_diagnosis_receipt_switch_does_not_discard_the_grade_time_forecast`.
+- FR3-18: a teacher correction re-send's receipt records the request gate's estimate of its own prompt (the first
+  prompt with the correction appended), not the first send's, so the next context-compaction forecast measures growth
+  from the prompt that was actually sent. A receipt note; nothing replays it. Test:
+  `tests/test_teacher_te5_compaction.py::test_a_correction_receipt_records_its_own_prompt_estimate`.
 
 ## Pins and goldens
 

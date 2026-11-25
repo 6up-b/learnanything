@@ -116,10 +116,12 @@ def latest(repository: Any, lesson_id: str) -> Projection:
     return Projection(row[0], json.loads(row[1])) if row else Projection()
 
 
-def record_requests(repository: Any, lesson_id: str, projection: Projection, input_estimate: int | None = None):
+def record_requests(repository: Any, lesson_id: str, projection: Projection,
+                    input_estimate: int | Callable[[], int | None] | None = None):
     """Publish the boundary and its decision together at receipt start, before the teacher can send.
     ``input_estimate``: the request gate's estimate of the prompt being sent, kept on its receipt so the next
-    forecast measures growth from it even when the prompt's text is not kept (a nested or withheld call)."""
+    forecast measures growth from it even when the prompt's text is not kept (a nested or withheld call); a callable
+    is read at each receipt's start, so a correction re-send records its own prompt's estimate (FR3-18)."""
     owned: set[str] = set()
     pending = projection.decision
     operation = None
@@ -143,8 +145,9 @@ def record_requests(repository: Any, lesson_id: str, projection: Projection, inp
             if event["purpose"] != "teacher_turn" or operation is not None:
                 return
             notes = {"teacher_lesson_id": lesson_id, "transcript_prefix": projection.prefix}
-            if input_estimate is not None:
-                notes["input_estimate"] = int(input_estimate)
+            estimated = input_estimate() if callable(input_estimate) else input_estimate
+            if estimated is not None:
+                notes["input_estimate"] = int(estimated)
             if projection.summary is not None:
                 notes["summary_version"] = projection.summary["version"]
             if pending is not None:

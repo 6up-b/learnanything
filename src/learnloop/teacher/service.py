@@ -1659,7 +1659,11 @@ def _teacher_contract_failure(info: ContractFailure) -> Exception:
 
 
 def _request_teacher_turn(vault: Any, repository: Any, state: LessonState, client: Any, *, prompt: str,
-                          model: type, outcome: _Outcome, clock: Clock | None) -> Any:
+                          model: type, outcome: _Outcome, clock: Clock | None,
+                          sending: Callable[[str], None] | None = None) -> Any:
+    """``sending``: told each prompt actually sent (the first, then a correction's) at its request start, before its
+    receipt opens."""
+
     from learnloop.ai.errors import AIInvalidOutput
     from learnloop.ai.execution import active_request_gate
 
@@ -1673,6 +1677,8 @@ def _request_teacher_turn(vault: Any, repository: Any, state: LessonState, clien
         if attempt.ordinal and protection_changed(vault, repository, state):
             _end_for_protection(vault, repository, state, clock=clock, outcome=outcome)
             raise _BlankTeacherTurn()
+        if sending is not None:
+            sending(attempt.prompt)
         try:
             answer = execute_structured_operation(
                 client, purpose=TEACHER_PURPOSE, prompt=attempt.prompt, result_model=model, check=check,
@@ -1721,13 +1727,22 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
     try:
         with ExitStack() as stack:
             limit = C.context_limit(vault.config, client)
+            sending = None
             if limit is None:
                 prompt = _prompt(state, **fields)
             else:
                 prompt, projection, sent_estimate = _limited_prompt(vault, repository, state, client, limit, fields)
-                stack.enter_context(C.record_requests(repository, state.lesson_id, projection, sent_estimate))
+                # Each receipt records the estimate of the prompt it sent: a correction re-send its own (FR3-18).
+                estimates = {"sent": sent_estimate}
+                if state.gate is not None:
+                    gate = state.gate
+
+                    def sending(text: str) -> None:
+                        estimates["sent"] = gate.estimate_tokens(client, prompt=text, budget=0)
+                stack.enter_context(C.record_requests(repository, state.lesson_id, projection,
+                                                      lambda: estimates["sent"]))
             raw = _request_teacher_turn(vault, repository, state, client, prompt=prompt, model=model,
-                                        outcome=outcome, clock=clock)
+                                        outcome=outcome, clock=clock, sending=sending)
     except _BlankTeacherTurn:
         # Both blanks were already counted; the loop may use any remaining slot.
         return None
