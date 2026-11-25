@@ -366,3 +366,30 @@ sha256sum -c "$PRIVATE/original.sha256"
 After the live upgrade, the first graded answers show the new tier: their surprise rows read `grade_receipt` (or
 `serve_receipt` from a plan step), and `forecast_receipts` gains one `item_unassisted_success_at_grade` row per live
 answer AD can read.
+
+## The owner-copy run (Nov 24 2026, orchestrator; counts only)
+
+The procedure above, on backup-API copies of the three floor-set vaults upgraded to `mvp-0.70` with this tip, each
+step through the scratch wrapper. The copies were deleted afterwards; every original's `sha256sum -c` read OK.
+
+| | vault 1 | vault 2 | vault 3 |
+|---|---|---|---|
+| attempts (bound serve receipts used) | 3 (0) | 70 (0) | 3 (0; one bound row falls back, `no_receipt`) |
+| arm (f) mastery changed | 0 of 34 | 8 of 21, mean +0.106, max +0.606 | 0 of 18 |
+| arm (f) queue: Spearman, top-10 overlap | 1.0, 10 | 0.948, 9 | 0.967, 10 |
+| arm (f) direction flips; above the follow-up threshold (arm a) | 0; 0 (0) | 0; 3 (4) | 0; 0 (0) |
+| `compare`: mastery changed, mean, max | 0 of 34 | 8 of 21, +0.106, +0.606 | 0 of 18 |
+| `compare`: queue Spearman, top-10 overlap | 1.0, 10 | 0.948, 9 | 0.967, 10 |
+| `compare`: surprise direction changed; due items moved | 0; 0 of 32 | 0; 0 of 99 | 0; 0 of 77 |
+| after: surprise by source | mastery 3 | mastery 70 | mastery 3 |
+| after: grade-time receipts | 0 | 0 | 0 |
+| after: AD rows with KL / trained subject rows | 0 / 0 | 28 / 28 | 1 / 1 |
+| after: integrity, foreign-key violations | ok, 0 | ok, 0 | ok, 0 |
+| upgrade exit; shadow rebuild twice | 0; same | 0; same | 0; same |
+
+- Every number equals the earlier lane's and arm (f)'s own line, as the record expected.
+- The two shadow rebuilds after the upgrade differ only in the marker id and the as-of time.
+- `attempts_with_gate_records` reads 0 before and after on every vault; the coverage script counts 3, 70 and 3 gate
+  record rows, none with diagnostics.
+- The doctor exits 1 on each copy, on content errors that predate this tag (`criterion:unknown_dependency` 46 on
+  vaults 1 and 3, `layout:missing_directory` on 1 and 2, `yaml:invalid` 2 on vault 3); no `difficulty:` code appears.
