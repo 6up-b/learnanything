@@ -108,7 +108,7 @@ WHERE json_extract(predicted_score_dist_json, '$.p_ad') IS NOT NULL
 SQL
 ```
 
-The second count is an upper bound: it applies only where the vault's config has `mastery.irt.enabled = false`
+Both counts are upper bounds (the first does not check the original contract); the second applies only where the vault's config has `mastery.irt.enabled = false`
 (and the default clip; with another clip compare against it). FR3-5, FR3-10, FR3-12, FR3-15 and FR3-18 change live
 decisions and live receipts only, so the rebuild digests do not move for them.
 
