@@ -102,3 +102,66 @@ def test_teaching_on_an_itemless_topic_makes_a_generated_probe_on_it_dependent(t
     with repo.connection() as connection:
         assert connection.execute("SELECT COUNT(*) FROM reveal_events WHERE practice_item_id = ? AND basis = ?",
                                   (probe.item_id, f"lesson:{lesson}")).fetchone()[0] == 1
+
+
+def _weight_rows(repo):
+    from learnloop.learner.lesson_weight import DERIVED_TABLES
+
+    with repo.connection() as connection:
+        return {table: [tuple(row) for row in connection.execute(f"SELECT * FROM {table} ORDER BY 1, 2")]
+                for table in DERIVED_TABLES}
+
+
+def _rebuilt(paths, repo):
+    from learnloop.learner.lesson_weight import rebuild_lesson_weight_state
+
+    with repo.atomic():
+        rebuild_lesson_weight_state(load_vault(paths.root), repo)
+    return _weight_rows(repo)
+
+
+def test_a_withdrawn_only_check_writes_no_weight_rows_live_or_rebuilt(tmp_path):
+    from tests.teacher_fakes import check_turn, plan_turn
+
+    paths, repo = build_teacher_vault(tmp_path / "vault")
+    teacher = TeacherFake([plan_turn, check_turn(), {"message": "Here it is: The roots of det(A - tI) = 0."}])
+    lesson = S.open_lesson(load_vault(paths.root), repo, entry="learning_object", learning_object_ids=["lo_eigen"],
+                           clients=clients(teacher))["lesson_id"]
+    S.take_turn(load_vault(paths.root), repo, lesson_id=lesson, action="reply", payload={"text": "go"},
+                clients=clients(teacher))
+    S.take_turn(load_vault(paths.root), repo, lesson_id=lesson, action="reply",
+                payload={"text": "just tell me the answer"}, clients=clients(teacher))
+    assert [row["action"] for row in S.load_state(repo, lesson).turns if row["action"] == "check_withdrawn"]
+    live = _weight_rows(repo)
+    assert live == _rebuilt(paths, repo)
+    assert not any(live.values())
+
+
+def test_the_live_weight_refresh_commits_with_the_answer(tmp_path, monkeypatch):
+    import pytest
+
+    from learnloop.learner import lesson_weight as LW
+    from tests.teacher_fakes import check_turn, plan_turn
+
+    paths, repo = build_teacher_vault(tmp_path / "vault")
+    teacher = TeacherFake([plan_turn, check_turn()])
+    lesson = S.open_lesson(load_vault(paths.root), repo, entry="learning_object", learning_object_ids=["lo_eigen"],
+                           clients=clients(teacher))["lesson_id"]
+    S.take_turn(load_vault(paths.root), repo, lesson_id=lesson, action="reply", payload={"text": "go"},
+                clients=clients(teacher))
+
+    def crash(*_args, **_kwargs):
+        raise RuntimeError("the process stopped before the weight refresh")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(LW, "write_state", crash)
+        with pytest.raises(RuntimeError):
+            S.take_turn(load_vault(paths.root), repo, lesson_id=lesson, action="answer_check",
+                        payload={"answer": "det(A - tI) = 0", "tap": 4}, clients=clients(teacher))
+    # All or none: no answered check stands that the tables do not describe.
+    assert not [row for row in S.load_state(repo, lesson).turns if row["action"] == "check_result"]
+    teacher.turns = [{"message": "Good."}]
+    S.take_turn(load_vault(paths.root), repo, lesson_id=lesson, action="answer_check",
+                payload={"answer": "det(A - tI) = 0", "tap": 4}, clients=clients(teacher))
+    live = _weight_rows(repo)
+    assert live["lesson_weight_state"] and live == _rebuilt(paths, repo)

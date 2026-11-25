@@ -1426,12 +1426,14 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
                   "attempt_id": attempt_id, "unanchored": not bool(open_check["check"].get("anchors"))}
         _append(repository, state, actor="code", action="check_result", refs={"attempt": attempt_id, "item": item.id},
                 payload=result, clock=clock)
+        # TE5-R14: the DERIVED weight tables are refreshed in the answer's own transaction, so no crash leaves an
+        # answered check the tables do not describe (the rebuild's bound, the latest answered check, is this one).
+        _update_weight_state(vault, repository)
     _drop_submission(repository, state, open_check["check_ref"])
     if "episodes" in state.capabilities:
         # TE2-log: a detour on this node closes at its re-check (its own savepoint; never blocks the answer).
         E.close_episodes(repository, state.lesson_id, closed_at=as_of, reason="rechecked", node_id=node_id,
                          kind="detour", outcome={"recheck_attempt_id": attempt_id, "outcome_correctness": correctness})
-    _update_weight_state(vault, repository)
     state.open_check = None
     state.checks.append({"check_ref": result["check_ref"], "status": "answered", "minted_item_id": item.id})
     return _teach(vault, repository, state, clients=clients, client=clients.teacher(), help_reply=False, clock=clock)
