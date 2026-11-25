@@ -74,7 +74,7 @@ For system intent, use [[AI Architecture]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/ai/decisions|learnloop.ai.decisions]] | [[Reference/Modules/learnloop/ai/decisions#^module-purpose|purpose]] | `ACTIVE` | 22 | 18 |
 | [[Reference/Modules/learnloop/ai/disclosures|learnloop.ai.disclosures]] | [[Reference/Modules/learnloop/ai/disclosures#^module-purpose|purpose]] | `ACTIVE` | 3 | 7 |
 | [[Reference/Modules/learnloop/ai/embedding|learnloop.ai.embedding]] | [[Reference/Modules/learnloop/ai/embedding#^module-purpose|purpose]] | `ACTIVE` | 10 | 3 |
-| [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] | [[Reference/Modules/learnloop/ai/errors#^module-purpose|purpose]] | `ACTIVE` | 114 | 104 |
+| [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] | [[Reference/Modules/learnloop/ai/errors#^module-purpose|purpose]] | `ACTIVE` | 114 | 105 |
 | [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] | [[Reference/Modules/learnloop/ai/execution#^module-purpose|purpose]] | `ACTIVE` | 140 | 126 |
 | [[Reference/Modules/learnloop/ai/isolation|learnloop.ai.isolation]] | [[Reference/Modules/learnloop/ai/isolation#^module-purpose|purpose]] | `ACTIVE` | 3 | 21 |
 | [[Reference/Modules/learnloop/ai/model_use|learnloop.ai.model_use]] | [[Reference/Modules/learnloop/ai/model_use#^module-purpose|purpose]] | `ACTIVE` | 19 | 6 |
@@ -87,7 +87,7 @@ For system intent, use [[AI Architecture]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]] | [[Reference/Modules/learnloop/ai/runs#^module-purpose|purpose]] | `ACTIVE` | 9 | 2 |
 | [[Reference/Modules/learnloop/ai/runtime|learnloop.ai.runtime]] | [[Reference/Modules/learnloop/ai/runtime#^module-purpose|purpose]] | `ACTIVE` | 9 | 19 |
 | [[Reference/Modules/learnloop/ai/schemas|learnloop.ai.schemas]] | [[Reference/Modules/learnloop/ai/schemas#^module-purpose|purpose]] | `ACTIVE` | 72 | 22 |
-| [[Reference/Modules/learnloop/ai/spend|learnloop.ai.spend]] | [[Reference/Modules/learnloop/ai/spend#^module-purpose|purpose]] | `ACTIVE` | 125 | 99 |
+| [[Reference/Modules/learnloop/ai/spend|learnloop.ai.spend]] | [[Reference/Modules/learnloop/ai/spend#^module-purpose|purpose]] | `ACTIVE` | 125 | 100 |
 | [[Reference/Modules/learnloop/ai/strict_schema|learnloop.ai.strict_schema]] | [[Reference/Modules/learnloop/ai/strict_schema#^module-purpose|purpose]] | `ACTIVE` | 4 | 13 |
 | [[Reference/Modules/learnloop/ai/structured_contracts|learnloop.ai.structured_contracts]] | [[Reference/Modules/learnloop/ai/structured_contracts#^module-purpose|purpose]] | `ACTIVE` | 7 | 10 |
 | [[Reference/Modules/learnloop/ai/tool_requests|learnloop.ai.tool_requests]] | [[Reference/Modules/learnloop/ai/tool_requests#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |

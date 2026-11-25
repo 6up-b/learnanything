@@ -61,7 +61,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | [[Reference/Modules/learnloop/tutor/question_signal|learnloop.tutor.question_signal]] | [[Reference/Modules/learnloop/tutor/question_signal#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
 | [[Reference/Modules/learnloop/tutor/reader_modes|learnloop.tutor.reader_modes]] | [[Reference/Modules/learnloop/tutor/reader_modes#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 | [[Reference/Modules/learnloop/tutor/teach_back|learnloop.tutor.teach_back]] | [[Reference/Modules/learnloop/tutor/teach_back#^module-purpose|purpose]] | `ACTIVE` | 7 | 6 |
-| [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] | [[Reference/Modules/learnloop/tutor/tutor_qa#^module-purpose|purpose]] | `ACTIVE` | 28 | 63 |
+| [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] | [[Reference/Modules/learnloop/tutor/tutor_qa#^module-purpose|purpose]] | `ACTIVE` | 29 | 63 |
 
 ## Cross-package dependencies
 
@@ -92,12 +92,12 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 15 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 6 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 4 static module edges
+- [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 4 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 3 static module edges
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 3 static module edges
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/_package|learnloop.experiments.contextual_embeddings]] — 3 static module edges
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 3 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 3 static module edges
-- [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 3 static module edges
 - [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] — 3 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 2 static module edges
 - [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] — 2 static module edges

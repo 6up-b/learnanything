@@ -2305,6 +2305,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_te5_grade_curves.py](../../../../../tests/test_teacher_te5_grade_curves.py) — direct import
   - `test_pool_only_endpoint_uses_its_snapshot_and_reports_an_unapplied_replacement`
   - `test_upgrade_freezes_once_then_refits_and_rebuilds_twice`
+- [tests/test_teacher_te5_review_recovery.py](../../../../../tests/test_teacher_te5_review_recovery.py) — direct import
+  - `test_a_graded_answer_survives_a_crash_and_is_graded_once`
+  - `test_an_answer_edited_after_a_stranded_one_is_graded_as_its_own_revision`
 - [tests/test_today_headline.py](../../../../../tests/test_today_headline.py) — direct import
   - `test_a_blueprint_lo_with_an_integration_gap_is_learning`
 - [tests/test_today_surfaces.py](../../../../../tests/test_today_surfaces.py) — direct import

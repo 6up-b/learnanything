@@ -182,6 +182,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_interrupted_compaction_preserves_evidence_and_replays_receipt`
   - `test_last_turn_plan_in_receipt_matches_stored_versions`
   - `test_live_boundary_and_predecessor_bytes`
+- [tests/test_teacher_te5_review_evidence.py](../../../../../../../tests/test_teacher_te5_review_evidence.py) — direct import
+  - `test_teaching_on_an_itemless_topic_makes_a_generated_probe_on_it_dependent`
+- [tests/test_teacher_te5_review_recovery.py](../../../../../../../tests/test_teacher_te5_review_recovery.py) — direct import
 
 ## Modification guidance
 

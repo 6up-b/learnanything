@@ -111,12 +111,12 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — imports consumer [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]]
 - [tests/test_teacher_te2_probes.py](../../../../../../tests/test_teacher_te2_probes.py) — imports consumer [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]]
 - [tests/test_teacher_te2_review_fixes.py](../../../../../../tests/test_teacher_te2_review_fixes.py) — imports consumer [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]]
+- [tests/test_teacher_te5_review_evidence.py](../../../../../../tests/test_teacher_te5_review_evidence.py) — imports consumer [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]]
 - [tests/figures_prefetch_review_fixes_helpers.py](../../../../../../tests/figures_prefetch_review_fixes_helpers.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
 - [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
 - [tests/live_dialogue_contract_helpers.py](../../../../../../tests/live_dialogue_contract_helpers.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
 - [tests/reader_rw5d_p4b_teacher_visuals_helpers.py](../../../../../../tests/reader_rw5d_p4b_teacher_visuals_helpers.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
 - [tests/teacher_fakes.py](../../../../../../tests/teacher_fakes.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/teacher_te1_lesson_helpers.py](../../../../../../tests/teacher_te1_lesson_helpers.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
 
 ## Modification guidance
 

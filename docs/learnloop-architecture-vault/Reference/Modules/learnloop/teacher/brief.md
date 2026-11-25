@@ -138,7 +138,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]] — imports `downstream_learning_objects`; statically calls `downstream_learning_objects`
 - [[Reference/Modules/learnloop/teacher/guards|learnloop.teacher.guards]] — imports `SourceBook`
 - [[Reference/Modules/learnloop/teacher/notes|learnloop.teacher.notes]] — imports `STEM_CHARS`, `c4_active`; statically calls `c4_active`
-- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `LessonRefused`, `SourceBook`, `build_brief`, `lo_prediction`, `protection_state`, `resolve_goal`, `revoke_unteachable`; statically calls `build_brief`, `lo_prediction`, `protection_state`, `resolve_goal`, `revoke_unteachable`
+- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `LessonRefused`, `SourceBook`, `build_brief`, `lo_prediction`, `passage_teachable`, `protection_state`, `resolve_goal`, `revoke_unteachable`; statically calls `build_brief`, `lo_prediction`, `passage_teachable`, `protection_state`, `resolve_goal`, `revoke_unteachable`
 - [[Reference/Modules/learnloop/teacher/te2|learnloop.teacher.te2]] — imports `recap_admissible`; statically calls `recap_admissible`
 - [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]] — imports `PROTECTED_SELECTION`
 

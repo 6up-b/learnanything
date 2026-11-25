@@ -120,6 +120,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/diagnosis/split/contract|learnloop.diagnosis.split.contract]] — imports `ELICITING_REVEAL_BUDGET_DEFAULT`, `PostdictiveClaim`, `RepairVerificationRequest`
 - [[Reference/Modules/learnloop/diagnosis/split/legacy_view|learnloop.diagnosis.split.legacy_view]] — imports `GradingProposal`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `CriterionEvidence`, `GradingContext`, `GradingProposal`; statically calls `CriterionEvidence`, `GradingContext`, `GradingProposal`
+- [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `GradingProposal`
 
 ## Dependencies
 
@@ -141,7 +142,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]], [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] and 7 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]], [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] and 8 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -57,7 +57,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] | [[Reference/Modules/learnloop/followup_run/authoring#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
 | [[Reference/Modules/learnloop/followup_run/contract_job|learnloop.followup_run.contract_job]] | [[Reference/Modules/learnloop/followup_run/contract_job#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
 | [[Reference/Modules/learnloop/followup_run/decision_view|learnloop.followup_run.decision_view]] | [[Reference/Modules/learnloop/followup_run/decision_view#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] | [[Reference/Modules/learnloop/followup_run/jobs#^module-purpose|purpose]] | `ACTIVE` | 4 | 12 |
+| [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] | [[Reference/Modules/learnloop/followup_run/jobs#^module-purpose|purpose]] | `ACTIVE` | 4 | 13 |
 | [[Reference/Modules/learnloop/followup_run/lanes|learnloop.followup_run.lanes]] | [[Reference/Modules/learnloop/followup_run/lanes#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 | [[Reference/Modules/learnloop/followup_run/lesson_probe|learnloop.followup_run.lesson_probe]] | [[Reference/Modules/learnloop/followup_run/lesson_probe#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/followup_run/marks|learnloop.followup_run.marks]] | [[Reference/Modules/learnloop/followup_run/marks#^module-purpose|purpose]] | `ACTIVE` | 3 | 5 |

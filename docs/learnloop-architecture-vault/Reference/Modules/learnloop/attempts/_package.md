@@ -79,7 +79,7 @@ For system intent, use [[Learning System]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/attempts/__init__|learnloop.attempts]] | [[Reference/Modules/learnloop/attempts/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/attempts/ability_transition|learnloop.attempts.ability_transition]] | [[Reference/Modules/learnloop/attempts/ability_transition#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
-| [[Reference/Modules/learnloop/attempts/ai_contracts|learnloop.attempts.ai_contracts]] | [[Reference/Modules/learnloop/attempts/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 12 | 36 |
+| [[Reference/Modules/learnloop/attempts/ai_contracts|learnloop.attempts.ai_contracts]] | [[Reference/Modules/learnloop/attempts/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 13 | 36 |
 | [[Reference/Modules/learnloop/attempts/answer_check|learnloop.attempts.answer_check]] | [[Reference/Modules/learnloop/attempts/answer_check#^module-purpose|purpose]] | `ACTIVE` | 6 | 1 |
 | [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]] | [[Reference/Modules/learnloop/attempts/attempt_trace#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] | [[Reference/Modules/learnloop/attempts/attempts#^module-purpose|purpose]] | `ACTIVE` | 37 | 276 |
@@ -108,7 +108,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]] | [[Reference/Modules/learnloop/attempts/post_attempt#^module-purpose|purpose]] | `ACTIVE` | 6 | 34 |
 | [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] | [[Reference/Modules/learnloop/attempts/regrade#^module-purpose|purpose]] | `ACTIVE` | 3 | 29 |
 | [[Reference/Modules/learnloop/attempts/replay_reading|learnloop.attempts.replay_reading]] | [[Reference/Modules/learnloop/attempts/replay_reading#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]] | [[Reference/Modules/learnloop/attempts/reveal_ledger#^module-purpose|purpose]] | `ACTIVE` | 19 | 17 |
+| [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]] | [[Reference/Modules/learnloop/attempts/reveal_ledger#^module-purpose|purpose]] | `ACTIVE` | 19 | 18 |
 | [[Reference/Modules/learnloop/attempts/salience_firewall|learnloop.attempts.salience_firewall]] | [[Reference/Modules/learnloop/attempts/salience_firewall#^module-purpose|purpose]] | `ACTIVE` | 17 | 28 |
 | [[Reference/Modules/learnloop/attempts/stuck|learnloop.attempts.stuck]] | [[Reference/Modules/learnloop/attempts/stuck#^module-purpose|purpose]] | `ACTIVE` | 15 | 7 |
 | [[Reference/Modules/learnloop/attempts/surprise|learnloop.attempts.surprise]] | [[Reference/Modules/learnloop/attempts/surprise#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
@@ -143,7 +143,7 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 24 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 17 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 15 static module edges
-- [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 11 static module edges
+- [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 12 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 8 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 7 static module edges
 - [[Reference/Modules/learnloop/diagnosis/offline_review/_package|learnloop.diagnosis.offline_review]] — 7 static module edges

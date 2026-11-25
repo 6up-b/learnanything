@@ -103,7 +103,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `production_admissibility`; statically calls `production_admissibility`
 - [[Reference/Modules/learnloop/source_retrieval/compare|learnloop.source_retrieval.compare]] — imports `record_reveal`; statically calls `record_reveal`
 - [[Reference/Modules/learnloop/source_retrieval/find_sources|learnloop.source_retrieval.find_sources]] — imports `record_reveal`; statically calls `record_reveal`
-- [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]] — imports `production_admissibility`; statically calls `production_admissibility`
+- [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]] — imports `production_admissibility`, `record_reveal_strict`; statically calls `production_admissibility`, `record_reveal_strict`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `record_reveal_strict`; statically calls `record_reveal_strict`
 - [[Reference/Modules/learnloop/tui/screens/feedback|learnloop.tui.screens.feedback]] — imports `record_answer_display_reveal`; statically calls `record_answer_display_reveal`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `record_reveal`, `reveal_episode_id`; statically calls `record_reveal`, `reveal_episode_id`
@@ -178,6 +178,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_answer_after_teaching_on_its_topic_is_not_independent`
 - [tests/test_teacher_te2_review_fixes.py](../../../../../../tests/test_teacher_te2_review_fixes.py) — direct import
   - `test_f2_an_answer_after_teaching_on_its_topic_is_instructional_and_no_cold_outcome`
+- [tests/test_teacher_te5_review_recovery.py](../../../../../../tests/test_teacher_te5_review_recovery.py) — direct import
+  - `test_a_teacher_turn_returned_before_a_crash_is_not_bought_again`
 - [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
   - `test_f1_a_production_after_the_cold_delay_is_independent_again`
   - `test_f1_a_review_after_the_cold_delay_is_recorded_unprimed_a_retry_before_it_primed`

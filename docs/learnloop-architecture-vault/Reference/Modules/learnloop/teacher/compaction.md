@@ -47,31 +47,31 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/compaction.py](../../../../../../src/learnloop/teacher/compaction.py) |
-| Source lines | 213 |
+| Source lines | 233 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class Projection` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 20)
-  - `apply(self, history: list[dict[str, Any]]) -> list[dict[str, Any]]` (line 25; public)
-- `context_limit(config: Any, client: Any) -> int | None` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 31)
-- `forecast(repository: Any, lesson_id: str, client: Any, *, prefix: int, estimated_input: int, output_budget: int, estimate: Callable[[str], int]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 36) — Take one sample per physical send.
-- `latest(repository: Any, lesson_id: str) -> Projection` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 105)
-- `record_requests(repository: Any, lesson_id: str, projection: Projection, input_estimate: int | Callable[[], int | None] | None=None)` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 119) — Publish the boundary and its decision together at receipt start, before the teacher can send.
-- `recent_start(history: Sequence[Mapping[str, Any]]) -> int` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 166) — Preserve the last accepted teacher turn and everything since the one before it.
-- `selected(row: Mapping[str, Any], fields: Sequence[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 172)
-- `summarize(repository: Any, state: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 176)
-- `decision(state: Any, prefix: int, summary: Mapping[str, Any], facts: Mapping[str, Any], limit: int, entries: int) -> provenance.DecisionRecord` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 201)
+- `class Projection` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 22)
+  - `apply(self, history: list[dict[str, Any]]) -> list[dict[str, Any]]` (line 27; public)
+- `context_limit(config: Any, client: Any) -> int | None` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 33)
+- `forecast(repository: Any, lesson_id: str, client: Any, *, prefix: int, estimated_input: int, output_budget: int, estimate: Callable[[str], int]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 38) — Take one sample per physical send.
+- `latest(repository: Any, lesson_id: str) -> Projection` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 107)
+- `record_requests(repository: Any, lesson_id: str, projection: Projection, input_estimate: int | Callable[[], int | None] | None=None)` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 121) — Publish the boundary and its decision together at receipt start, before the teacher can send.
+- `recent_start(history: Sequence[Mapping[str, Any]]) -> int` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 168) — Preserve the last accepted teacher turn and everything since the one before it.
+- `selected(row: Mapping[str, Any], fields: Sequence[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 174)
+- `summarize(repository: Any, state: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 178)
+- `decision(state: Any, prefix: int, summary: Mapping[str, Any], facts: Mapping[str, Any], limit: int, entries: int) -> provenance.DecisionRecord` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 221)
 
 ### Module constants
 
-- `VERSION` ([src/learnloop/teacher/compaction.py](../../../../../../src/learnloop/teacher/compaction.py), line 16)
+- `VERSION` ([src/learnloop/teacher/compaction.py](../../../../../../src/learnloop/teacher/compaction.py), line 18)
 
 ## Internal implementation anchors
 
-No private top-level function or class definition is declared in this file.
+- `_accepted_topics(turns: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 208)
 
 ## Who imports or calls it
 

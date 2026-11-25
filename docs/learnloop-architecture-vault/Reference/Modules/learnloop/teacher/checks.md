@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/checks.py](../../../../../../src/learnloop/teacher/checks.py) |
-| Source lines | 346 |
+| Source lines | 375 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -62,10 +62,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `lesson_item(item: Any) -> bool` ([source](../../../../../../src/learnloop/teacher/checks.py), line 105)
 - `cold_reference(vault: Any, repository: Any, learning_object_id: str, *, lesson_id: str, exclude: Sequence[str], lesson_item_ids: Sequence[str], node_id: str | None=None, prior_nodes: Sequence[Mapping[str, Any]]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/checks.py), line 113) — The committed cold item a node's retention forecast is about, as of now (§12.2; review F5): the item the delayed retention check would commit (``teacher.delayed``'s candidate rule and picker, excluding the lesson's own and shown items and their lineage), its IRT parameters (the…
 - `check_mass(vault: Any, repository: Any, *, learning_object_id: str, tap: int | None, hedge: str | None, correctness: float, item: Any, as_of: str, p_teacher_retained: float | None, family: str, reference: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/checks.py), line 154) — The mass this check enters mastery at, with every input (``weight_inputs``).
-- `grade_answer(vault: Any, repository: Any, client: Any, *, item: Any, attempt_id: str, answer: str, runtime: Any=None, clock: Clock | None=None) -> tuple[Any, str]` ([source](../../../../../../src/learnloop/teacher/checks.py), line 219) — The blind grader's validated grade of ``answer`` (the answer only), as a ResolvedGrade, and its run id.
-- `prepare_check_attempt(vault: Any, repository: Any, *, item: Any, attempt_id: str, answer: str, grade: Any, grading_source: str, grading_run_id: str, tap: int | None, clock: Clock | None) -> Any` ([source](../../../../../../src/learnloop/teacher/checks.py), line 281)
-- `record_answered_check(vault: Any, repository: Any, *, lesson_id: str, node_id: str, check_ref: str, item: Any, prepared: Any, tap: int | None, mass: Mapping[str, Any], created_at: str, forecast_correct_key: str | None, forecast_retained_key: str | None, clock: Clock | None=None) -> Any` ([source](../../../../../../src/learnloop/teacher/checks.py), line 296) — One transaction: the ``lesson_checks`` row (the mass the attempt step reads), then the attempt.
-- `withdraw_check(repository: Any, *, lesson_id: str, node_id: str, check_ref: str, item: Any, overlap: float, created_at: str) -> str` ([source](../../../../../../src/learnloop/teacher/checks.py), line 322)
+- `grade_checkpoint_key(attempt_id: str, item_id: str, answer: str) -> str` ([source](../../../../../../src/learnloop/teacher/checks.py), line 234)
+- `grade_answer(vault: Any, repository: Any, client: Any, *, item: Any, attempt_id: str, answer: str, runtime: Any=None, clock: Clock | None=None) -> tuple[Any, str]` ([source](../../../../../../src/learnloop/teacher/checks.py), line 238) — The blind grader's validated grade of ``answer`` (the answer only), as a ResolvedGrade, and its run id.
+- `prepare_check_attempt(vault: Any, repository: Any, *, item: Any, attempt_id: str, answer: str, grade: Any, grading_source: str, grading_run_id: str, tap: int | None, clock: Clock | None) -> Any` ([source](../../../../../../src/learnloop/teacher/checks.py), line 310)
+- `record_answered_check(vault: Any, repository: Any, *, lesson_id: str, node_id: str, check_ref: str, item: Any, prepared: Any, tap: int | None, mass: Mapping[str, Any], created_at: str, forecast_correct_key: str | None, forecast_retained_key: str | None, clock: Clock | None=None) -> Any` ([source](../../../../../../src/learnloop/teacher/checks.py), line 325) — One transaction: the ``lesson_checks`` row (the mass the attempt step reads), then the attempt.
+- `withdraw_check(repository: Any, *, lesson_id: str, node_id: str, check_ref: str, item: Any, overlap: float, created_at: str) -> str` ([source](../../../../../../src/learnloop/teacher/checks.py), line 351)
 
 ### Module constants
 
@@ -73,6 +74,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `CHECK_ATTEMPT_TYPE` ([src/learnloop/teacher/checks.py](../../../../../../src/learnloop/teacher/checks.py), line 40)
 - `ENTRY_SURFACE` ([src/learnloop/teacher/checks.py](../../../../../../src/learnloop/teacher/checks.py), line 41)
 - `EVIDENCE_ORIGIN` ([src/learnloop/teacher/checks.py](../../../../../../src/learnloop/teacher/checks.py), line 42)
+- `GRADE_CHECKPOINT_PURPOSE` ([src/learnloop/teacher/checks.py](../../../../../../src/learnloop/teacher/checks.py), line 231)
 
 ### Explicit exports
 
@@ -92,7 +94,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-No private top-level function or class definition is declared in this file.
+- `_validated(proposal: Any, *, attempt_id: str, item: Any, vault: Any, answer: str) -> Any` ([source](../../../../../../src/learnloop/teacher/checks.py), line 219)
 
 ## Who imports or calls it
 
@@ -109,6 +111,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `content_key`; calls `content_key`
 - [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]] — imports `finish_agent_run`; calls `finish_agent_run`
 - [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `LESSON_WEIGHT_CURVE_VERSIONS`, `retention_forecast_shares_allocation`; calls `retention_forecast_shares_allocation`
+- [[Reference/Modules/learnloop/attempts/ai_contracts|learnloop.attempts.ai_contracts]] — imports `GradingProposal`
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `ApplyAttemptInput`, `AttemptDraft`, `AttemptValidationError`, `GradeAttribution`, `ResolvedGrade`, `agent_run_provider_fields`, `apply_attempt`, `with_grade_forecast`; calls `ApplyAttemptInput`, `AttemptDraft`, `AttemptValidationError`, `GradeAttribution`, `ResolvedGrade`, `agent_run_provider_fields`, `apply_attempt`, `with_grade_forecast`
 - [[Reference/Modules/learnloop/attempts/evidence|learnloop.attempts.evidence]] — imports `attempt_evidence_mass`; calls `attempt_evidence_mass`
 - [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `GradingValidationError`, `build_grading_context`, `request_vault_grading_proposal`, `validate_codex_grading_proposal`, `vault_grading_calibration_identity`, `vault_grading_run_identity`; calls `build_grading_context`, `request_vault_grading_proposal`, `validate_codex_grading_proposal`, `vault_grading_calibration_identity`, `vault_grading_run_identity`
@@ -153,6 +156,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_lesson_weight_fit_trajectory.py](../../../../../../tests/test_lesson_weight_fit_trajectory.py) — direct import
   - `test_a_flat_response_keeps_the_learned_mass`
 - [tests/test_teacher_te2_review_fixes.py](../../../../../../tests/test_teacher_te2_review_fixes.py) — direct import
+- [tests/test_teacher_te5_review_recovery.py](../../../../../../tests/test_teacher_te5_review_recovery.py) — direct import
+  - `test_a_graded_answer_survives_a_crash_and_is_graded_once`
+  - `test_an_edited_answer_refused_by_the_budget_is_saved_as_typed`
 
 ## Modification guidance
 

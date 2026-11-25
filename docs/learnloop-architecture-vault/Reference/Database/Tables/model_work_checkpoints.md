@@ -102,6 +102,8 @@ Indexes and uniqueness:
 - `src/learnloop/practice_index/paid.py`
 - `src/learnloop/source_retrieval/library_ask.py`
 - `src/learnloop/source_retrieval/passage_cues.py`
+- `src/learnloop/teacher/checks.py`
+- `src/learnloop/teacher/service.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

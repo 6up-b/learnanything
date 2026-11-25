@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/api/dto.ts](../../../../../../apps/learnloop-tauri/src/api/dto.ts) |
-| Source lines | 11823 |
+| Source lines | 11826 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/api/_area|TypeScript/api]] |
 | Refactor status | `ACTIVE` |
@@ -894,138 +894,138 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface LessonSuggestionResponseDto` — interface, line 10493
 - `export type LessonFigureStatus = "shown" | "failed" | "withheld" | "unavailable"` — type, line 10503
 - `export type LessonFeedEntryDto = |` — type, line 10505
-- `export interface LessonViewDto` — interface, line 10524
-- `export interface LessonProbeDto` — interface, line 10557
-- `export interface LessonGoalDto` — interface, line 10567
-- `export interface OpenLessonDto` — interface, line 10578
-- `export interface LessonSummaryDto` — interface, line 10587
-- `export interface FollowAlongDto` — interface, line 10606
-- `export interface VideoChapterDto` — interface, line 10625
-- `export interface ChaptersJobDto` — interface, line 10641
-- `export interface LessonActivityIntervalDto` — interface, line 10652
-- `export interface RouterDecisionDto` — interface, line 10664
-- `export interface FollowupDto` — interface, line 10678
-- `export type HypothesisMark = "my_gap" | "partly" | "not_it"` — type, line 10692
-- `export interface HypothesisMarksDto` — interface, line 10694
-- `export interface FollowupNextDto` — interface, line 10706
-- `export type ContentRefDto = |` — type, line 10718
-- `export type PadStackEntryDto = Extract<ContentRefDto,` — type, line 10732
-- `export type CompanionDock = "br" | "bl" | "right" | "cb"` — type, line 10733
-- `export type DeskWindowKind = ContentRefDto["kind"] | "pad_stack"` — type, line 10734
-- `export interface DeskWindowDto` — interface, line 10736
-- `export interface DeskDto` — interface, line 10751
-- `export interface DeskStateDto` — interface, line 10764
-- `export type DeskOpDto = DeskCoreOpDto | DeskMembershipOpDto` — type, line 10774
-- `export type DeskCoreOpDto = DeskOpBase & ( |` — type, line 10775
-- `export type DeskMembershipOpDto = DeskOpBase & ( |` — type, line 10803
-- `export type WriteOpResultDto = |` — type, line 10809
-- `export interface DeskApplyInput` — interface, line 10822
-- `export interface DeskApplyDto` — interface, line 10823
-- `export type PadKind = "running" | "named" | "problem" | "ink" | "lesson_additions"` — type, line 10830
-- `export type PadBlockKind = "text" | "note" | "source_quote" | "source_piece" | "tutor_quote" | "figure" | "sketch" | "cell" | "ink" | "lifted" | "check_cell"` — type, line 10831
-- `export type PadProvenance = "learner" | "source" | "tutor" | "learnloop" | "ink_transcription" | "learner_correction"` — type, line 10833
-- `export interface PadDto` — interface, line 10835
-- `export interface PadBlockDto` — interface, line 10848
-- `export interface PadBlockSubmissionDto` — interface, line 10863
-- `export interface PadAnchorDto` — interface, line 10874
-- `export interface PadViewDto` — interface, line 10890
-- `export interface PadListDto` — interface, line 10891
-- `export type PadOpDto = |` — type, line 10893
-- `export interface PadApplyInput` — interface, line 10921
-- `export interface PadApplyDto` — interface, line 10922
-- `export type PadSubmitAs = "attempt" | "teach_back"` — type, line 10931
-- `export interface PadSubmitBlockInput` — interface, line 10933
-- `export interface PadSubmitBlockDto` — interface, line 10950
-- `export interface MenuObjectInput` — interface, line 10970
-- `export interface PassagePromotedInput extends MenuObjectInput` — interface, line 10987
-- `export interface PromotedRowDto` — interface, line 10993
-- `export interface PassagePromotedDto` — interface, line 11014
-- `export interface PromotedJobDto` — interface, line 11032
-- `export interface PassageKnowsDto` — interface, line 11046
-- `export interface PassageContentDto` — interface, line 11054
-- `export type ProposalLabel = "opened" | "not_this" | "dismiss" | "ignored"` — type, line 11065
-- `export interface PadProposalDto` — interface, line 11067
-- `export interface PadProposalsDto` — interface, line 11084
-- `export interface ProposalLabelInput` — interface, line 11086
-- `export interface PadDrainDto` — interface, line 11093
-- `export type CarriedState = "carried" | "fruitful" | "not_now" | "let_go"` — type, line 11101
-- `export interface CarriedQuestionDto` — interface, line 11103
-- `export interface CarryInput` — interface, line 11119
-- `export interface CarriedMarkInput` — interface, line 11129
-- `export interface CarriedListDto` — interface, line 11138
-- `export type AnchorQuality = "exact_selection" | "citation" | "source_context" | "unanchored"` — type, line 11146
-- `export type SpanAlias = "exact" | "needs_reanchor"` — type, line 11148
-- `export interface PassageUnionSpanDto` — interface, line 11150
-- `export interface PassageUnionDto` — interface, line 11174
-- `export type PassageUnionInput = ( |` — type, line 11182
-- `export interface CompanionExchangeDto` — interface, line 11191
-- `export interface CompanionHistoryDto` — interface, line 11207
-- `export interface ChecksDueDto` — interface, line 11216
-- `export interface CheckVisibleDto` — interface, line 11229
-- `export type CheckVeilRefDto = Record<string, unknown> &` — type, line 11239
-- `export interface CheckPromptDto` — interface, line 11243
-- `export interface CheckCardDto` — interface, line 11254
-- `export interface CheckProtectReplyDto` — interface, line 11282
-- `export interface CheckExposeReplyDto` — interface, line 11289
-- `export type CheckExposureKind = "opened_veil" | "navigated" | "help" | "left"` — type, line 11293
-- `export type CheckSubmitDto = Record<string, unknown> &` — type, line 11296
-- `export type CompanionAskSurface = "desk" | "reader" | "lesson" | "notebook"` — type, line 11306
-- `export interface CompanionAskInput extends ReaderAskInput` — interface, line 11310
-- `export type CompanionAskStatus = "queued" | "running" | "done" | "failed" | "cancelled" | "expired"` — type, line 11323
-- `export interface PolledJobErrorDto` — interface, line 11325
-- `export interface CompanionAskJobDto` — interface, line 11333
-- `export type SearchScope = "sources" | "passages" | "notes" | "pads" | "threads" | "exchanges"` — type, line 11362
-- `export interface SearchEverythingInput` — interface, line 11364
-- `export interface SearchRowBase` — interface, line 11374
-- `export interface SearchSourceRowDto extends SearchRowBase` — interface, line 11380
-- `export interface SearchPassageRowDto extends SearchRowBase` — interface, line 11384
-- `export type SearchNoteRowDto = SearchRowBase & ( |` — type, line 11388
-- `export interface SearchPadRowDto extends SearchRowBase` — interface, line 11395
-- `export interface SearchThreadRowDto extends SearchRowBase` — interface, line 11400
-- `export interface SearchExchangeRowDto extends SearchRowBase` — interface, line 11404
-- `export interface SearchGroupDto` — interface, line 11409
-- `export interface SearchEverythingDto` — interface, line 11426
-- `export interface SearchJobDto` — interface, line 11439
-- `export type NotebookOwner = `pad:$` — type, line 11454
-- `export interface NotebookOpenInput` — interface, line 11456
-- `export type NotebookSessionState = "starting" | "ready" | "restarting" | "stopping" | "stopped" | "failed"` — type, line 11464
-- `export interface NotebookSessionDto` — interface, line 11466
-- `export interface NotebookLessonDto` — interface, line 11493
-- `export interface NotebookCellRunDto` — interface, line 11499
-- `export interface NotebookCellInput` — interface, line 11505
-- `export interface NotebookReleaseDto` — interface, line 11510
-- `export interface NotebookRunCellsDto` — interface, line 11516
-- `export interface DeliverablePathViewDto` — interface, line 11527
-- `export type GoalLensStatus = DeliverablePathViewDto["status"] | "not_a_deliverable"` — type, line 11550
-- `export interface GoalLensGoalDto` — interface, line 11552
-- `export type GoalLensDepth = ReadingPathDepth` — type, line 11564
-- `export interface GoalSectionRefDto` — interface, line 11567
-- `export interface GoalBandLoDto` — interface, line 11576
-- `export interface GoalChoicesDto` — interface, line 11594
-- `export interface GoalBandDto` — interface, line 11600
-- `export type GoalLensInput = |` — type, line 11636
-- `export type GoalLensLevel = "core" | "supporting" | "later" | "already_shown" | "skippable" | "partial" | "unmapped"` — type, line 11641
-- `export type GoalLensReasonKey = | "primary" | "prerequisite" | "alternate" | "another_treatment" | "applies" | "mentions" | "learner_about" | "chapter_about" | "deeper_depth" | "demonstrated" | "assumed" | "check_pending" | "you_skipped" | "out_of_scope" | "n…` — type, line 11643
-- `export interface GoalLensSectionDto` — interface, line 11649
-- `export interface GoalLensDto` — interface, line 11679
-- `export interface GoalSectionChoiceInput` — interface, line 11693
-- `export interface GoalSectionChoiceDto` — interface, line 11702
-- `export interface InkStrokeDto` — interface, line 11712
-- `export type InkOwnerDto = |` — type, line 11719
-- `export interface InkEraseInput` — interface, line 11725
-- `export interface InkEraseDto` — interface, line 11734
-- `export interface InkSaveInput` — interface, line 11741
-- `export interface InkSaveDto` — interface, line 11753
-- `export type InkConfidenceLabel = "may_be_wrong" | "nothing_read"` — type, line 11762
-- `export interface InkOwnerViewDto` — interface, line 11764
-- `export interface InkListDto` — interface, line 11787
-- `export interface InkReadingDto` — interface, line 11794
-- `export interface InkTranscribeJobDto` — interface, line 11813
+- `export interface LessonViewDto` — interface, line 10525
+- `export interface LessonProbeDto` — interface, line 10560
+- `export interface LessonGoalDto` — interface, line 10570
+- `export interface OpenLessonDto` — interface, line 10581
+- `export interface LessonSummaryDto` — interface, line 10590
+- `export interface FollowAlongDto` — interface, line 10609
+- `export interface VideoChapterDto` — interface, line 10628
+- `export interface ChaptersJobDto` — interface, line 10644
+- `export interface LessonActivityIntervalDto` — interface, line 10655
+- `export interface RouterDecisionDto` — interface, line 10667
+- `export interface FollowupDto` — interface, line 10681
+- `export type HypothesisMark = "my_gap" | "partly" | "not_it"` — type, line 10695
+- `export interface HypothesisMarksDto` — interface, line 10697
+- `export interface FollowupNextDto` — interface, line 10709
+- `export type ContentRefDto = |` — type, line 10721
+- `export type PadStackEntryDto = Extract<ContentRefDto,` — type, line 10735
+- `export type CompanionDock = "br" | "bl" | "right" | "cb"` — type, line 10736
+- `export type DeskWindowKind = ContentRefDto["kind"] | "pad_stack"` — type, line 10737
+- `export interface DeskWindowDto` — interface, line 10739
+- `export interface DeskDto` — interface, line 10754
+- `export interface DeskStateDto` — interface, line 10767
+- `export type DeskOpDto = DeskCoreOpDto | DeskMembershipOpDto` — type, line 10777
+- `export type DeskCoreOpDto = DeskOpBase & ( |` — type, line 10778
+- `export type DeskMembershipOpDto = DeskOpBase & ( |` — type, line 10806
+- `export type WriteOpResultDto = |` — type, line 10812
+- `export interface DeskApplyInput` — interface, line 10825
+- `export interface DeskApplyDto` — interface, line 10826
+- `export type PadKind = "running" | "named" | "problem" | "ink" | "lesson_additions"` — type, line 10833
+- `export type PadBlockKind = "text" | "note" | "source_quote" | "source_piece" | "tutor_quote" | "figure" | "sketch" | "cell" | "ink" | "lifted" | "check_cell"` — type, line 10834
+- `export type PadProvenance = "learner" | "source" | "tutor" | "learnloop" | "ink_transcription" | "learner_correction"` — type, line 10836
+- `export interface PadDto` — interface, line 10838
+- `export interface PadBlockDto` — interface, line 10851
+- `export interface PadBlockSubmissionDto` — interface, line 10866
+- `export interface PadAnchorDto` — interface, line 10877
+- `export interface PadViewDto` — interface, line 10893
+- `export interface PadListDto` — interface, line 10894
+- `export type PadOpDto = |` — type, line 10896
+- `export interface PadApplyInput` — interface, line 10924
+- `export interface PadApplyDto` — interface, line 10925
+- `export type PadSubmitAs = "attempt" | "teach_back"` — type, line 10934
+- `export interface PadSubmitBlockInput` — interface, line 10936
+- `export interface PadSubmitBlockDto` — interface, line 10953
+- `export interface MenuObjectInput` — interface, line 10973
+- `export interface PassagePromotedInput extends MenuObjectInput` — interface, line 10990
+- `export interface PromotedRowDto` — interface, line 10996
+- `export interface PassagePromotedDto` — interface, line 11017
+- `export interface PromotedJobDto` — interface, line 11035
+- `export interface PassageKnowsDto` — interface, line 11049
+- `export interface PassageContentDto` — interface, line 11057
+- `export type ProposalLabel = "opened" | "not_this" | "dismiss" | "ignored"` — type, line 11068
+- `export interface PadProposalDto` — interface, line 11070
+- `export interface PadProposalsDto` — interface, line 11087
+- `export interface ProposalLabelInput` — interface, line 11089
+- `export interface PadDrainDto` — interface, line 11096
+- `export type CarriedState = "carried" | "fruitful" | "not_now" | "let_go"` — type, line 11104
+- `export interface CarriedQuestionDto` — interface, line 11106
+- `export interface CarryInput` — interface, line 11122
+- `export interface CarriedMarkInput` — interface, line 11132
+- `export interface CarriedListDto` — interface, line 11141
+- `export type AnchorQuality = "exact_selection" | "citation" | "source_context" | "unanchored"` — type, line 11149
+- `export type SpanAlias = "exact" | "needs_reanchor"` — type, line 11151
+- `export interface PassageUnionSpanDto` — interface, line 11153
+- `export interface PassageUnionDto` — interface, line 11177
+- `export type PassageUnionInput = ( |` — type, line 11185
+- `export interface CompanionExchangeDto` — interface, line 11194
+- `export interface CompanionHistoryDto` — interface, line 11210
+- `export interface ChecksDueDto` — interface, line 11219
+- `export interface CheckVisibleDto` — interface, line 11232
+- `export type CheckVeilRefDto = Record<string, unknown> &` — type, line 11242
+- `export interface CheckPromptDto` — interface, line 11246
+- `export interface CheckCardDto` — interface, line 11257
+- `export interface CheckProtectReplyDto` — interface, line 11285
+- `export interface CheckExposeReplyDto` — interface, line 11292
+- `export type CheckExposureKind = "opened_veil" | "navigated" | "help" | "left"` — type, line 11296
+- `export type CheckSubmitDto = Record<string, unknown> &` — type, line 11299
+- `export type CompanionAskSurface = "desk" | "reader" | "lesson" | "notebook"` — type, line 11309
+- `export interface CompanionAskInput extends ReaderAskInput` — interface, line 11313
+- `export type CompanionAskStatus = "queued" | "running" | "done" | "failed" | "cancelled" | "expired"` — type, line 11326
+- `export interface PolledJobErrorDto` — interface, line 11328
+- `export interface CompanionAskJobDto` — interface, line 11336
+- `export type SearchScope = "sources" | "passages" | "notes" | "pads" | "threads" | "exchanges"` — type, line 11365
+- `export interface SearchEverythingInput` — interface, line 11367
+- `export interface SearchRowBase` — interface, line 11377
+- `export interface SearchSourceRowDto extends SearchRowBase` — interface, line 11383
+- `export interface SearchPassageRowDto extends SearchRowBase` — interface, line 11387
+- `export type SearchNoteRowDto = SearchRowBase & ( |` — type, line 11391
+- `export interface SearchPadRowDto extends SearchRowBase` — interface, line 11398
+- `export interface SearchThreadRowDto extends SearchRowBase` — interface, line 11403
+- `export interface SearchExchangeRowDto extends SearchRowBase` — interface, line 11407
+- `export interface SearchGroupDto` — interface, line 11412
+- `export interface SearchEverythingDto` — interface, line 11429
+- `export interface SearchJobDto` — interface, line 11442
+- `export type NotebookOwner = `pad:$` — type, line 11457
+- `export interface NotebookOpenInput` — interface, line 11459
+- `export type NotebookSessionState = "starting" | "ready" | "restarting" | "stopping" | "stopped" | "failed"` — type, line 11467
+- `export interface NotebookSessionDto` — interface, line 11469
+- `export interface NotebookLessonDto` — interface, line 11496
+- `export interface NotebookCellRunDto` — interface, line 11502
+- `export interface NotebookCellInput` — interface, line 11508
+- `export interface NotebookReleaseDto` — interface, line 11513
+- `export interface NotebookRunCellsDto` — interface, line 11519
+- `export interface DeliverablePathViewDto` — interface, line 11530
+- `export type GoalLensStatus = DeliverablePathViewDto["status"] | "not_a_deliverable"` — type, line 11553
+- `export interface GoalLensGoalDto` — interface, line 11555
+- `export type GoalLensDepth = ReadingPathDepth` — type, line 11567
+- `export interface GoalSectionRefDto` — interface, line 11570
+- `export interface GoalBandLoDto` — interface, line 11579
+- `export interface GoalChoicesDto` — interface, line 11597
+- `export interface GoalBandDto` — interface, line 11603
+- `export type GoalLensInput = |` — type, line 11639
+- `export type GoalLensLevel = "core" | "supporting" | "later" | "already_shown" | "skippable" | "partial" | "unmapped"` — type, line 11644
+- `export type GoalLensReasonKey = | "primary" | "prerequisite" | "alternate" | "another_treatment" | "applies" | "mentions" | "learner_about" | "chapter_about" | "deeper_depth" | "demonstrated" | "assumed" | "check_pending" | "you_skipped" | "out_of_scope" | "n…` — type, line 11646
+- `export interface GoalLensSectionDto` — interface, line 11652
+- `export interface GoalLensDto` — interface, line 11682
+- `export interface GoalSectionChoiceInput` — interface, line 11696
+- `export interface GoalSectionChoiceDto` — interface, line 11705
+- `export interface InkStrokeDto` — interface, line 11715
+- `export type InkOwnerDto = |` — type, line 11722
+- `export interface InkEraseInput` — interface, line 11728
+- `export interface InkEraseDto` — interface, line 11737
+- `export interface InkSaveInput` — interface, line 11744
+- `export interface InkSaveDto` — interface, line 11756
+- `export type InkConfidenceLabel = "may_be_wrong" | "nothing_read"` — type, line 11765
+- `export interface InkOwnerViewDto` — interface, line 11767
+- `export interface InkListDto` — interface, line 11790
+- `export interface InkReadingDto` — interface, line 11797
+- `export interface InkTranscribeJobDto` — interface, line 11816
 
 ## Internal implementation anchors
 
 - `interface KnowledgeFacetPointBase` — interface, line 546
-- `type DeskOpBase =` — type, line 10772
+- `type DeskOpBase =` — type, line 10775
 
 ## Who imports or calls it
 
