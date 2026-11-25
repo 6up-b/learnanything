@@ -105,6 +105,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_teacher_te5_grade_curves.py](../../../../../../../tests/test_teacher_te5_grade_curves.py) — direct import
+  - `test_a_copy_graded_with_the_label_freezes_the_label_free_curve_after_the_walk`
+  - `test_measured_difficulty_stays_off_at_the_curves_tag_and_an_edit_moves_no_curve`
   - `test_regrade_adds_a_curve_for_only_the_new_epoch`
   - `test_upgrade_labels_superseded_epochs_and_keeps_a_legacy_stamp`
 

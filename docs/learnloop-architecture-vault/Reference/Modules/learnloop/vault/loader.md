@@ -3573,8 +3573,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_lookup_consent_replay_and_receipt`
   - `test_resume_after_yaml_publication_finishes_consent_once`
 - [tests/test_teacher_te5_grade_curves.py](../../../../../../tests/test_teacher_te5_grade_curves.py) — direct import
-  - `test_a_rebuild_seeds_measured_difficulty_from_the_recorded_cold_curve`
+  - `test_a_copy_graded_with_the_label_freezes_the_label_free_curve_after_the_walk`
   - `test_an_unapplied_adjudication_before_the_upgrade_is_not_given_the_applied_epochs_curve`
+  - `test_measured_difficulty_stays_off_at_the_curves_tag_and_an_edit_moves_no_curve`
   - `test_pool_only_endpoint_uses_its_snapshot_and_reports_an_unapplied_replacement`
   - `test_regrade_adds_a_curve_for_only_the_new_epoch`
   - `test_upgrade_freezes_once_then_refits_and_rebuilds_twice`

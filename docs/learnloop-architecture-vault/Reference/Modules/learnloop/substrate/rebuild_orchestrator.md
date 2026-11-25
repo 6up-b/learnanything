@@ -281,6 +281,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_new_starting_level_keeps_the_old_one_for_an_lo_first_practised_under_it`
   - `test_random_attempts_and_learner_reports_rebuild_to_live`
   - `test_two_rung_requests_on_a_cold_lo_then_an_attempt_rebuild_to_live`
+- [tests/test_lesson_weight_fit_reads.py](../../../../../../tests/test_lesson_weight_fit_reads.py) — direct import
+  - `test_a_regrade_leaves_the_lesson_weight_tables_as_a_rebuild_would`
 - [tests/test_lp_claim_fixes.py](../../../../../../tests/test_lp_claim_fixes.py) — direct import
   - `test_off_is_the_predecessor_on_a_tracked_fixture_copy`
   - `test_owner_copies_off_is_the_predecessor_and_on_reports_the_mastery_deltas`
@@ -438,6 +440,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_ads_trace_records_the_kl_of_its_posterior_from_the_tag_on`
   - `test_history_before_the_tag_falls_back_to_mastery_marked`
   - `test_the_label_does_not_move_mastery`
+- [tests/test_teacher_te1_review_fixes.py](../../../../../../tests/test_teacher_te1_review_fixes.py) — direct import
+  - `test_f6_the_trajectory_at_the_recorded_mass_reproduces_the_outcomes_recorded_prior`
 - [tests/test_teacher_te1_successor.py](../../../../../../tests/test_teacher_te1_successor.py) — direct import
   - `test_a_shadow_rebuild_after_a_lesson_has_zero_projection_deltas`
   - `test_the_whole_rebuild_owns_the_lesson_weight_tables_and_reproduces_them`
@@ -453,6 +457,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_te2_review_fixes.py](../../../../../../tests/test_teacher_te2_review_fixes.py) — direct import
   - `test_f1_a_probe_answer_carries_reliable_canonical_mass_live_and_after_a_rebuild`
   - `test_f7_a_blind_lesson_probe_grade_keeps_the_blind_calibration_identity`
+- [tests/test_teacher_te5_grade_curves.py](../../../../../../tests/test_teacher_te5_grade_curves.py) — direct import
+  - `test_measured_difficulty_stays_off_at_the_curves_tag_and_an_edit_moves_no_curve`
+  - `test_regrade_adds_a_curve_for_only_the_new_epoch`
+  - `test_upgrade_freezes_once_then_refits_and_rebuilds_twice`
 - [tests/test_upgrades.py](../../../../../../tests/test_upgrades.py) — direct import
 - [tests/test_voi_stopping.py](../../../../../../tests/test_voi_stopping.py) — direct import
 - [tests/test_workbench_assistance.py](../../../../../../tests/test_workbench_assistance.py) — direct import
