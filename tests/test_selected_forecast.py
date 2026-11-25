@@ -46,7 +46,8 @@ def test_selection_view_and_missing_selection_live_and_rebuilt(tmp_path, monkeyp
         presentation = _serve(vault, repo, item.id, i, at)
         result = complete_self_graded_attempt(vault, repo, AttemptDraft(item.id, "answer", plan_presentation_id=presentation),
             SelfGradeInput({"correctness": 2}, 4), clock=FrozenClock(at + timedelta(seconds=1)))
-        view = "subject" if version == "mvp-0.73" else (None if selected in ("mismatch", "missing_receipt") else selected)
+        view = "subject" if version == "mvp-0.73" else (None if selected in ("mismatch", "missing_receipt") else
+                                                         selected or "subject")
         name = ("ad_threshold_repeat@" if i else "ad_threshold@") + view if view else None
         expected[result.attempt_id] = name
     live = _surprise(repo)
@@ -217,3 +218,38 @@ def test_a_grade_saves_no_item_revision_and_an_answer_on_its_contract_is_still_f
     assert row is not None
     members = json.loads(row[0])["snapshot"]["target"]["target"]["members"]
     assert next(m["revision"] for m in members if m["kind"] == "item") == revision
+
+
+@pytest.mark.parametrize("door", ["self_graded", "empty_stuck"])
+def test_a_bound_answer_without_a_grade_receipt_reads_mastery_live_and_after_a_rebuild(tmp_path, monkeypatch, door):
+    """H3-R28: AD made no grade-time forecast for the answer (here: unavailable at the grade). The answered revision is
+    read from one stored row on both sides, the grade receipt, so with none the answer reads mastery live and after a
+    rebuild, and the rebuild reproduces the live row and its source. Before, live took the revision from today's item
+    and replay from the contract the grade froze, two facts that agree only while a contract is frozen (both read the
+    serve receipt here; an answer that froze no contract read it live and mastery after a rebuild)."""
+
+    from learnloop.adaptive_difficulty import surprise_forecast
+    from learnloop.attempts.attempts import complete_empty_stuck_attempt
+
+    paths = create_placement_vault(tmp_path / "vault", version="mvp-0.74")
+    vault, repo = load_vault(paths.root), Repository(paths.sqlite_path)
+    sync_vault_state(vault, repo, clock=FrozenClock(NOW))
+    item = vault.practice_items["pi_eig_mid"]
+    with repo.connection() as conn:
+        insert_selection(conn, dict(kind="serve", block_id="blk_h3_0", slot_position=1,
+            decision_key="serve:blk_h3_0:1", view="subject", chosen_item_id=item.id,
+            learning_object_id=item.learning_object_id, mode="band", support=[], excluded=[], constants={},
+            versions={}, seed="seed", state_hash="state", algorithm_version="mvp-0.74", created_at=_iso(NOW)))
+        conn.commit()
+    presentation = _serve(vault, repo, item.id, 0, NOW)
+    monkeypatch.setattr(surprise_forecast, "safe_grade_receipt", lambda *args, **kwargs: None)
+    draft = AttemptDraft(item.id, "answer" if door == "self_graded" else "", plan_presentation_id=presentation,
+                         declared_stuck=door == "empty_stuck")
+    clock = FrozenClock(NOW + timedelta(seconds=1))
+    result = (complete_self_graded_attempt(vault, repo, draft, SelfGradeInput({"correctness": 2}, 3), clock=clock)
+              if door == "self_graded" else complete_empty_stuck_attempt(vault, repo, draft, clock=clock))
+    assert repo.fetch_practice_attempt(result.attempt_id)["plan_presentation_id"] == presentation
+    live = _surprise(repo)
+    assert live[result.attempt_id]["dist"]["prediction_source"] == "mastery"
+    rebuild_all_derived_state(vault, repo)
+    assert _surprise(repo) == live

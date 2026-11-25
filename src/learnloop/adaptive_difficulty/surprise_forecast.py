@@ -121,6 +121,11 @@ def _serve_forecasts(connection: Any, presentation: dict[str, Any], selected: bo
         block, position = presentation["block_id"], presentation["position"]
         item = presentation["practice_item_id"]
         draw = selection_by_key(connection, f"serve:{block}:{position}")
+        if draw is None and not _slot_drawn(connection, block, position):
+            # No draw at all (the incumbent's slot: every repeat, a slot AD left alone): the subject view's receipt,
+            # as before the tag, read from what was stored.
+            return receipts.presentation_forecasts(connection, presentation_id, kind=ITEM_UNASSISTED_SUCCESS,
+                                                   forecasters=names)
         if (not draw or draw["kind"] != "serve" or draw["block_id"] != block or draw["slot_position"] != position
                 or draw["chosen_item_id"] != item or draw["created_at"] > presentation["served_at"] or draw["empty_support"]):
             return []
@@ -139,6 +144,15 @@ def _serve_forecasts(connection: Any, presentation: dict[str, Any], selected: bo
             and (expected is None or (row["p"] is not None and round(row["p"], 12) == expected))]
 
 
+def _slot_drawn(connection: Any, block: Any, position: Any) -> bool:
+    """Whether AD recorded any serve draw for the slot (one that does not verify still leaves mastery)."""
+
+    if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'ad_selections'").fetchone() is None:
+        return False
+    return connection.execute("SELECT 1 FROM ad_selections WHERE kind = 'serve' AND block_id = ? AND slot_position = ? "
+                              "LIMIT 1", (block, position)).fetchone() is not None
+
+
 def _receipt_revision(row: dict[str, Any] | None) -> str | None:
     if not row:
         return None
@@ -146,7 +160,7 @@ def _receipt_revision(row: dict[str, Any] | None) -> str | None:
         target = json.loads(row["versions_json"]).get("snapshot", {}).get("target", {}).get("target") or {}
         revision = next((m["revision"] for m in target.get("members", ())
                          if m["kind"] == "item" and m["id"] == row["practice_item_id"]), None)
-        return revision or json.loads(row.get("inputs_json") or "{}").get("item_revision")
+        return revision or json.loads(row.get("inputs_json") or "{}").get("item_revision") or row.get("item_content_hash")
     except (ValueError, KeyError, TypeError, AttributeError):
         return None
 
@@ -157,34 +171,33 @@ def _serve_input_revision(connection: Any, presentation_id: str) -> str | None:
     return row[0] if row else None
 
 
-def _matches_administration(presentation: dict[str, Any], draft: Any) -> bool:
-    return ((presentation["session_id"] is None or presentation["session_id"] == draft.session_id)
+def _matches_administration(connection: Any, presentation: dict[str, Any], draft: Any, at: str | None) -> bool:
+    """Whether the answer may take this presentation: served in no session, in the answer's own, to an answer that
+    names no session, or in a session that had ended by the answer's time ``at`` (starting a session ends every other,
+    so no answer of its own can still come); the probe administration it was served for; never an inline check.
+    Only a presentation still open in another session is left for that session's answer (H3-R7). Ended sessions stay
+    ended, so the decision taken live is the one replay takes from the stored times."""
+
+    served_in = presentation["session_id"]
+    return ((served_in is None or draft.session_id is None or served_in == draft.session_id
+             or _session_ended(connection, served_in, at))
             and presentation["probe_presentation_id"] == draft.probe_presentation_id
             and not (draft.submission_id or "").startswith("inline:"))
 
 
-def live_answered_revision(vault: Any, repository: Any, draft: Any) -> str | None:
-    """The revision a live answer answers: the one its contract froze when it was opened, else the item's current
-    revision (which the contract frozen at this grade will cite). A replay reads the recorded contract instead."""
-
-    if draft.assessment_contract_version_id:
-        return _contract_revision(repository, draft.assessment_contract_version_id)
-    item = vault.practice_items.get(draft.practice_item_id)
-    if item is None:
-        return None
-    from learnloop.vault.hashes import item_revision
-
-    return item_revision(item)[0]
+def _session_ended(connection: Any, session_id: str, at: str | None) -> bool:
+    row = connection.execute("SELECT ended_at FROM sessions WHERE id = ?", (session_id,)).fetchone()
+    return bool(row is not None and row[0] and (at is None or str(row[0]) <= at))
 
 
-def validate_live_binding(vault: Any, repository: Any, attempt: Any) -> Any:
+def validate_live_binding(vault: Any, repository: Any, attempt: Any, *, at: str | None = None) -> Any:
     """Drop a refused link and its prepared forecast together so replay also finds the marked fallback.
 
     A link is refused when the presentation is not bindable or was administered to another session, probe or an inline
     check. An answer to its own presentation keeps the link even when the served revision is not the answered one (an
     edit between the serve and the answer): the presentation records what the learner was shown, and protection, the
     plan and the router read it (H3-R24). Its surprise then reads mastery, live and on replay alike, because no serve
-    receipt forecast the answered revision (``read_surprise_forecast``)."""
+    receipt forecast the revision its grade receipt names (``read_surprise_forecast``). ``at`` is the answer's time."""
 
     draft = attempt.draft
     if (attempt.replace_existing or not draft.plan_presentation_id
@@ -194,16 +207,21 @@ def validate_live_binding(vault: Any, repository: Any, attempt: Any) -> Any:
         bound, _ = bindable_presentation(connection, draft.plan_presentation_id, practice_item_id=draft.practice_item_id,
                                          attempt_id=attempt.attempt_id)
         presentation = presentation_by_id(connection, bound) if bound else None
-        if presentation and _matches_administration(presentation, draft):
+        if presentation and _matches_administration(connection, presentation, draft, at):
             return attempt
     return replace(attempt, draft=replace(draft, plan_presentation_id=None), grade_forecast=None)
 
 
 def read_surprise_forecast(vault: Any, repository: Any, draft: Any, *, attempt_id: str,
-                           replay: bool = False, answered_revision: str | None = None) -> SurpriseForecast | None:
+                           answered_at: str | None = None) -> SurpriseForecast | None:
     """The forecast this answer's surprise is scored against, or None (mastery's own prediction). Below the label's
     retirement always None: the predecessor's surprise exactly. It reads only stored receipts, live, on a regrade and on
-    replay alike."""
+    replay alike.
+
+    From the selected-forecast tag the answered revision is the one the answer's grade receipt names, a row stored
+    before the grade (live, in its transaction) and read the same way on replay: an answer without one reads mastery on
+    both sides (H3-R28). An inline answer whose contract froze no revision reads mastery: its grade receipt may describe
+    a later edit."""
 
     if not label_retired(vault.config.algorithms.algorithm_version):
         return None
@@ -212,17 +230,21 @@ def read_surprise_forecast(vault: Any, repository: Any, draft: Any, *, attempt_i
         selected = vault.config.algorithms.algorithm_version in SELECTED_FORECAST_VERSIONS
         grade = receipts.attempt_forecast(connection, attempt_id, kind=ITEM_UNASSISTED_SUCCESS_AT_GRADE,
                                           receipt_key=grade_receipt_key(attempt_id))
-        if selected and replay and answered_revision is None:
-            if (draft.submission_id or "").startswith("inline:"):
-                return None
-            answered_revision = _receipt_revision(grade)
+        answered_revision = _receipt_revision(grade)
+        if selected and (draft.submission_id or "").startswith("inline:") and not (
+                draft.assessment_contract_version_id
+                and _contract_revision(repository, draft.assessment_contract_version_id)):
+            return None
         bound, _why = bindable_presentation(connection, plan_presentation_id, practice_item_id=practice_item_id,
                                             attempt_id=attempt_id)
         if bound is not None:
             presentation = presentation_by_id(connection, bound)
             served_at = presentation["served_at"]
-            if selected and not _matches_administration(presentation, draft):
-                return None
+            if selected:
+                stored = connection.execute("SELECT created_at FROM practice_attempts WHERE id = ?",
+                                            (attempt_id,)).fetchone()
+                if not _matches_administration(connection, presentation, draft, stored[0] if stored else answered_at):
+                    return None
             input_revision = _serve_input_revision(connection, bound) if selected else None
             for row in _serve_forecasts(connection, presentation, selected):
                 if selected:
@@ -235,8 +257,7 @@ def read_surprise_forecast(vault: Any, repository: Any, draft: Any, *, attempt_i
                                             str(row["forecaster"]))
             if selected:
                 return None
-        if selected and (plan_presentation_id or not _receipt_revision(grade)
-                         or (answered_revision and _receipt_revision(grade) != answered_revision)):
+        if selected and (plan_presentation_id or not answered_revision):
             return None
         row = grade
     if _usable(row, practice_item_id):
@@ -245,5 +266,4 @@ def read_surprise_forecast(vault: Any, repository: Any, draft: Any, *, attempt_i
 
 
 __all__ = ["GRADE_RECEIPT", "MASTERY", "SERVE_FORECASTERS", "SERVE_RECEIPT", "SurpriseForecast",
-           "live_answered_revision", "read_surprise_forecast", "record_grade_forecast", "validate_live_binding",
-           "with_grade_forecast"]
+           "read_surprise_forecast", "record_grade_forecast", "validate_live_binding", "with_grade_forecast"]

@@ -401,7 +401,8 @@ def test_frozen_serve_signals_trained_on_a_newly_protected_answer_are_not_replay
     build_plan(env2, kind="normal", budget=3.0, remembered=3, minutes_source="chip")
     _r, served = advance(env2, serve=True)
     clock.advance(2)
-    answer(paths, "pi_y", correct=True, presentation_id=served["presentation_id"], clock=clock)
+    # Answered in the session that served it (H3-R26: another session's open presentation is left for its answer).
+    answer(paths, "pi_y", correct=True, presentation_id=served["presentation_id"], clock=clock, session_id="s2")
 
     def status() -> str:
         RP.clear_cache()

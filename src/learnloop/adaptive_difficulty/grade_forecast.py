@@ -134,8 +134,9 @@ def grade_receipt(vault: Any, repository: Any, *, practice_item_id: str, attempt
         parameters=[parameter("priors", P.PRIORS_VERSION, "structural", source="code")],
         versions={"forecaster": GRADE_FORECAST_VERSION, **P.versions()},
         inputs_as_of=at, p=prediction.p_bar,
+        # The answered revision as a column, whatever the snapshot enrichment: surprise reads it live and on replay.
         columns={"decision_ref": attempt_id, "source_attempt_id": attempt_id, "practice_item_id": str(item.id),
-                 "learning_object_id": item.learning_object_id},
+                 "learning_object_id": item.learning_object_id, "item_content_hash": revision.content_hash},
         snapshot=parts,
     )
 

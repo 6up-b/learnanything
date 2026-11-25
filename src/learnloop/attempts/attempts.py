@@ -75,7 +75,7 @@ from learnloop.learner.facet_diagnostics import (
     read_breadth,
     read_lo_coverage,
 )
-from learnloop.algorithm_versions import SELECTED_FORECAST_VERSIONS, LESSON_WEIGHT_CURVE_VERSIONS
+from learnloop.algorithm_versions import LESSON_WEIGHT_CURVE_VERSIONS
 from learnloop.db.stores.grade_curves import current_curve
 from learnloop.learner.lesson_weight import lesson_check_mass
 from learnloop.learner.mastery import (
@@ -143,7 +143,7 @@ from learnloop.learner.recall_coverage import (
 )
 from learnloop.attempts.surprise import SurpriseResult, compute_surprise
 from learnloop.adaptive_difficulty.surprise_forecast import (
-    live_answered_revision, read_surprise_forecast, record_grade_forecast, validate_live_binding, with_grade_forecast,
+    read_surprise_forecast, record_grade_forecast, validate_live_binding, with_grade_forecast,
 )
 from learnloop.algorithm_versions import forecast_scoring_fixed, label_retired, mastery_facts_recorded
 from learnloop.vault.hashes import practice_item_hash
@@ -2965,7 +2965,7 @@ def apply_attempt(
                     recorded_at=utc_now_iso(clock),
                 )
         attempt = _refold_server_hints(vault, repository, attempt)
-        attempt = validate_live_binding(vault, repository, attempt)
+        attempt = validate_live_binding(vault, repository, attempt, at=utc_now_iso(clock))
         record_grade_forecast(vault, repository, attempt.grade_forecast)  # stored first: the grade reads the row
         result = _apply_attempt_in_transaction(vault, repository, attempt, clock=clock)
         if not attempt.replace_existing:
@@ -4238,11 +4238,6 @@ def _compute_resolved_grade_application(
             curve = current_curve(connection, attempt_id)
         if curve.item_a is not None and curve.item_b is not None:
             recorded_curve = (curve.item_a, curve.item_b)
-    selected = vault.config.algorithms.algorithm_version in SELECTED_FORECAST_VERSIONS
-    # Replay reads the presented contract's revision; live, the one the contract frozen at this answer will cite.
-    presented = attempt_graded_contract(repository, attempt_id) if selected and replay else None
-    answered_revision = presented.contract.get("forecast_item_revision") if presented else (
-        live_answered_revision(vault, repository, draft) if selected and not replay else None)
     reads = GradeReads(
         recorded_curve=recorded_curve,
         prior_state=prior_state,
@@ -4254,8 +4249,7 @@ def _compute_resolved_grade_application(
         reference_status=reference_status,
         error_event_ids=error_event_ids,
         grading_evidence=grading_evidence,
-        surprise_forecast=read_surprise_forecast(vault, repository, draft, attempt_id=attempt_id,
-                                                 replay=replay, answered_revision=answered_revision),
+        surprise_forecast=read_surprise_forecast(vault, repository, draft, attempt_id=attempt_id, answered_at=now_iso),
     )
     seed = attempt_seed_capture(vault, learning_object.id, prior_state.mastery_seed, replay=replay, now_iso=now_iso)
     return replace(grade_application(inputs, scope, reads), lifecycle_inputs=lifecycle_inputs, mastery_seed_inputs=seed)
