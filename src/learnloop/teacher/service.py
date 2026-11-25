@@ -1324,17 +1324,19 @@ def _topic_decision(vault: Any, repository: Any, state: LessonState, verb: str, 
 
 
 def _published(vault: Any, state: LessonState, offer: Mapping[str, Any]) -> bool:
-    """Whether this request already wrote its topic (the writer's request identity names one LO per lesson and
-    phrase): finishing it only synchronizes; a request that wrote nothing must check the catalog again first."""
+    """Whether this request already wrote its topic (the writer records the lesson as its goal and the learner's
+    phrase in the LO's provenance): finishing it only synchronizes; a request that wrote nothing must check the
+    catalog again first."""
 
-    from learnloop.goals import goal_lo as GL
-
-    data = offer["payload"]
-    _concept, lo = GL.creation_ids(GL.GoalLoRequest(
-        goal_id=state.lesson_id, phrase=data["phrase"], title=data["title"], statement=data["statement"],
-        subject_id=data["subject_id"], mechanism=GL.TEACHER_MECHANISM))
-    existing = vault.learning_objects.get(lo)
-    return existing is not None and existing.status == "active"
+    phrase = " ".join(str(offer["payload"]["phrase"]).casefold().split())
+    for learning_object in vault.learning_objects.values():
+        provenance = getattr(learning_object, "provenance", None)
+        fields = (provenance if isinstance(provenance, dict) else provenance.model_dump()
+                  if hasattr(provenance, "model_dump") else {})
+        if (learning_object.status == "active" and fields.get("goal_id") == state.lesson_id
+                and " ".join(str(fields.get("learner_text") or "").casefold().split()) == phrase):
+            return True
+    return False
 
 
 def _finish_topic_requests(vault: Any, repository: Any, state: LessonState, *, clock: Clock | None,
