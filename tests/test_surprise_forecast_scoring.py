@@ -94,3 +94,20 @@ def test_without_the_irt_link_the_configured_clip_holds_after_the_priming_shift_
     z_obs = log(0.02 / 0.98)
     assert at.predictive_surprise == pytest.approx(
         0.5 * (((z_obs - log(0.9 / 0.1)) / sigma) ** 2 + log(2 * 3.141592653589793 * sigma**2)))
+
+
+@pytest.mark.parametrize("p", [0.99, 0.005])
+def test_without_the_irt_link_a_clip_below_two_percent_is_the_only_clip(p):
+    """Review round 4, R4-S6 (a same-day correction inside mvp-0.76): with the default clip (1e-4) a forecast of 0.99,
+    or 0.005, is inside the configured interval and is scored as it is, the residual centred on its exact logit. Failed
+    before: mastery's logit, which holds any value to [0.02, 0.98], scored it at 0.98 (0.02)."""
+
+    at = _score_irt_off_at("mvp-0.76", p=p, p_clip=1e-4)
+    assert at.predicted_score_dist["p_scored"] == pytest.approx(p)
+    sigma = at.predicted_score_dist["sigma_z"]
+    z_obs = log(0.02 / 0.98)
+    assert at.predictive_surprise == pytest.approx(
+        0.5 * (((z_obs - log(p / (1.0 - p))) / sigma) ** 2 + log(2 * 3.141592653589793 * sigma**2)))
+    # A forecast beyond the configured clip is scored at it, on both tails.
+    edge = _score_irt_off_at("mvp-0.76", p=1.0 if p > 0.5 else 0.0, p_clip=1e-4)
+    assert edge.predicted_score_dist["p_scored"] == pytest.approx(1.0 - 1e-4 if p > 0.5 else 1e-4)

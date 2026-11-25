@@ -136,9 +136,10 @@ def compute_surprise(
             clip = config.mastery.irt.p_clip
             centre = _open_logit(float(forecast.p), clip) + priming_offset
             if forecast_clipped_after_shift(config.algorithms.algorithm_version):
-                # The configured clip once, after the shift (as the IRT link's ``irt_observation_at``): the residual
-                # and ``p_scored`` read the same probability.
-                centre = logit(clamp(sigmoid(centre), clip, 1.0 - clip))
+                # The configured clip once, after the shift (as the IRT link's ``irt_observation_at``), and the exact
+                # logit of that probability (mastery's ``logit`` holds any value to [0.02, 0.98]): the residual and
+                # ``p_scored`` read the same probability.
+                centre = _open_logit(clamp(sigmoid(centre), clip, 1.0 - clip), clip)
             residual = (z_obs - centre) / sqrt(predictive_variance)
             scored = {"prediction_source": forecast.source, "receipt_key": forecast.receipt_key,
                       "forecaster": forecast.forecaster, "p_ad": float(forecast.p), "p_scored": sigmoid(centre)}

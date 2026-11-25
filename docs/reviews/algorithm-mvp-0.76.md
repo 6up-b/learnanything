@@ -85,6 +85,14 @@ The successor of mvp-0.75 for the review-round-3 fixes that change what is deriv
 
 (Fixes to rules introduced at this tag, made inside it: no vault was at mvp-0.76 when they landed.)
 
+- R4-S6, FR3-16's rule: after the shift and the configured clip, the centre is the exact logit of the clipped
+  probability. As first landed it took mastery's `logit`, which holds any value to [0.02, 0.98], so with the default
+  clip (1e-4) a forecast of 0.99 (or below 0.02) was scored at 0.98 (0.02), outside the recorded rule and unlike
+  mvp-0.75. Now a forecast inside the configured clip scores exactly as at mvp-0.75, and only one beyond it moves
+  (what the owner-copy procedure's `beyond_clip_irt_off` count already assumed). Test:
+  `tests/test_surprise_forecast_scoring.py::test_without_the_irt_link_a_clip_below_two_percent_is_the_only_clip`
+  (both tails). No golden moved.
+
 ### Fixed without the tag
 
 - R4-S1: a lesson check's or probe's answer refused by the lesson's budget is kept: the budget close writes the
