@@ -185,17 +185,28 @@ export function useFigures({
   const [optInSpanId, setOptInSpanId] = useState<string | null>(null);
   useEffect(() => { setManimOptIn(contract?.rich?.manimOptIn ?? null); }, [contract?.rich?.manimOptIn]);
   const setExpanded = useCallback((figure: FigureViewDto | null) => setExpandedKey(figure ? figurePlacementKey(figure) : null), []);
-  // A build that lands after the source changed never shows on the new one.
+  // A build that lands after the source changed never shows on the new one. The
+  // generation is the open source's: it ends when the source changes and when the
+  // Reader closes (unmount), so every request, read, recheck and follow in flight
+  // then sets nothing when it settles (ledger R4-G1: a closed Reader's request set
+  // state after its window was gone).
   const generation = useRef(0);
   // RW5d P4a (Codex review F2): bumped when following switches off, so a
   // follow whose listing is still in flight is dropped when it lands.
   const followGeneration = useRef(0);
+  // The opt-in is the vault's, not the source's: its answer is dropped only once the Reader
+  // closed. Set by the effect's setup, so StrictMode's setup, cleanup, setup leaves it true.
+  const open = useRef(true);
+  useEffect(() => {
+    open.current = true;
+    return () => { open.current = false; };
+  }, []);
   const runs = useRef(new Map<string, object>());
   const onBuiltRef = useRef(onBuilt);
   onBuiltRef.current = onBuilt;
 
   useEffect(() => {
-    generation.current += 1;
+    const ended = () => { generation.current += 1; };
     setFigures([]);
     setPending([]);
     setRichPending([]);
@@ -205,7 +216,7 @@ export function useFigures({
     prefetchClock.current = null;
     setFollowed([]);
     setExpandedKey(null);
-    if (!enabled || !extractionId) return;
+    if (!enabled || !extractionId) return ended;
     const mine = generation.current;
     void Promise.resolve(api.readerFigures({ extractionId }))
       .then((found) => {
@@ -216,6 +227,7 @@ export function useFigures({
         }
       })
       .catch(() => undefined);
+    return ended;
   }, [enabled, extractionId]);
 
   // RW5d P4a (Codex review F2): correspondence switched off with the same book
@@ -428,8 +440,8 @@ export function useFigures({
     setOptInSpanId(null);
     setManimOptIn(choice === "allow" ? "standing" : "declined");
     void Promise.resolve(api.figureManimOptIn({ choice }))
-      .then((found) => { if (found?.manimOptIn) setManimOptIn(found.manimOptIn); })
-      .catch(() => setManimOptIn("ask"));
+      .then((found) => { if (open.current && found?.manimOptIn) setManimOptIn(found.manimOptIn); })
+      .catch(() => { if (open.current) setManimOptIn("ask"); });
   }, []);
 
   const revise = useCallback(
@@ -457,6 +469,8 @@ export function useFigures({
     (figure: FigureViewDto) => {
       if (!enabled || rechecking.current.has(figure.figureId)) return;
       rechecking.current.add(figure.figureId);
+      const mine = generation.current;
+      const live = () => generation.current === mine;
       void (async () => {
         const started = await Promise.resolve(api.readerFigureRecheck({ figureId: figure.figureId }));
         let state = started?.state;
@@ -464,9 +478,10 @@ export function useFigures({
         while (jobId && state === "pending") {
           await sleep(FIGURE_POLL_MS);
           await whenLive();
+          if (!live()) return;
           state = (await api.readerFigureJob({ jobId })).state;
         }
-        if (jobId) refresh();
+        if (jobId && live()) refresh();
       })().catch(() => undefined);
     },
     [enabled, refresh, whenLive],
@@ -524,8 +539,9 @@ export function useFigures({
   const predict = useCallback(
     async (figure: FigureViewDto, index: number, answer: string) => {
       if (!contract?.predictions) return null;
+      const mine = generation.current;
       const found = await api.readerFigurePredict({ figureId: figure.figureId, predictionIndex: index, answer });
-      patchPrediction(found);
+      if (generation.current === mine) patchPrediction(found);
       return found;
     },
     [contract, patchPrediction],
@@ -534,8 +550,9 @@ export function useFigures({
   const explain = useCallback(
     async (_figure: FigureViewDto, predictionId: string, text: string) => {
       if (!contract?.predictions || !text.trim()) return null;
+      const mine = generation.current;
       const found = await api.readerFigureExplain({ predictionId, text });
-      patchPrediction(found);
+      if (generation.current === mine) patchPrediction(found);
       return found;
     },
     [contract, patchPrediction],
