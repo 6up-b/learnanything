@@ -715,6 +715,8 @@ def stop_probe_diagnosing(ctx: SidecarContext, params: PracticeItemInput) -> dic
 
 class NextProbeItemInput(ParamsModel):
     learning_object_id: str
+    #: The episode a block end reported (a router-owned episode the router stopped is no longer the open one).
+    episode_id: str | None = None
 
 
 @method("get_next_probe_item", NextProbeItemInput)
@@ -728,8 +730,18 @@ def get_next_probe_item(ctx: SidecarContext, params: NextProbeItemInput) -> dict
     """
 
     vault, repository = ctx.require_vault()
+    from learnloop.diagnosis.probe_controls import PENDING, STANDING, router_next
     from learnloop.placement.state import servable_open_episode
 
+    # A router-owned episode's next question is the router's decision, never an independently ranked one (G2-R26):
+    # the one resolver the terminal client reads too.
+    routed = router_next(vault, repository, params.learning_object_id, episode_id=params.episode_id)
+    if routed is not None:
+        if routed.state == PENDING:
+            ctx.post_attempt_worker.request_probe_router()
+        return versioned({"active": routed.state == STANDING, "router_state": routed.state,
+                          "practice_item_id": routed.practice_item_id, "presentation_id": routed.presentation_id,
+                          "episode_status": routed.episode_status})
     if servable_open_episode(vault, repository, params.learning_object_id) is None:
         # No open episode, or an unanswered opening episode placement ignores
         # (owner decision 2026-10-12): nothing continues a diagnostic block.

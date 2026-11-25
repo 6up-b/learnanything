@@ -23,9 +23,13 @@ from learnloop.attempts.stuck import (
 from learnloop.diagnosis.probe_controls import episode_contract, stop_diagnosing_and_teach
 from learnloop.diagnosis.probe_episodes import episode_hypothesis_set
 from learnloop.diagnosis.probe_presentations import (
+    LearnerRefusedPin,
+    ProtectedInstrument,
+    RoutineDisplayCovered,
     commit_item_presentation,
     probe_serving_block_reason,
     probe_value_block_reason,
+    serve_presentation,
 )
 from learnloop.learner.mastery import sigmoid
 from learnloop.scheduling.scheduler import ScheduledItem, cold_check_serve_hold
@@ -128,6 +132,20 @@ class PracticeScreen(Screen):
         runtime, client = resolved.runtime, resolved.client
         if not runtime.ready or client is None:
             repository.update_probe_episode_status(episode.id, status="pending_items")
+            return
+        # A router-owned episode's question is the router's decision (G2-R26; the resolver the desktop's Continue reads
+        # too): its standing presentation is served as it stands when this is its item; nothing else is committed.
+        from learnloop.diagnosis.probe_controls import STANDING, router_next
+
+        routed = router_next(vault, repository, self.learning_object.id)
+        if routed is not None:
+            if routed.state == STANDING and routed.practice_item_id == self.practice_item.id:
+                try:
+                    serve_presentation(repository, str(routed.presentation_id), vault=vault)
+                except (ProtectedInstrument, RoutineDisplayCovered, LearnerRefusedPin):
+                    return
+                self.probe_presentation_id = routed.presentation_id
+                self.probe_contract = episode_contract(vault, repository, self.learning_object.id)
             return
         hypothesis_set = episode_hypothesis_set(repository, episode)
         if hypothesis_set is None:

@@ -576,9 +576,9 @@ export function useCausalRepairActions({
 }
 
 /** How long the first re-read of a status the router has not decided yet waits, and how many re-reads follow
- *  (each waiting twice as long as the one before: about half a minute in all). */
-export const ROUTER_DECISION_POLL_FIRST_MS = 500;
-export const ROUTER_DECISION_POLL_TRIES = 6;
+ *  (one schedule for every wait on the probe router, `app/routerDecisionPoll`). */
+export { ROUTER_DECISION_POLL_FIRST_MS, ROUTER_DECISION_POLL_TRIES } from "../app/routerDecisionPoll";
+import { ROUTER_DECISION_POLL_FIRST_MS, ROUTER_DECISION_POLL_TRIES } from "../app/routerDecisionPoll";
 
 /** The probe router's tag: the router decides a factor's quick check in the sidecar's worker, off
  *  its request loop, so a status read answers `routerState: "pending"` until that job has run. While a shown status

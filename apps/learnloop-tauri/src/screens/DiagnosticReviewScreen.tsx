@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api } from "../api/client";
+import { nextDiagnosticItem } from "../app/routerDecisionPoll";
 import type { CommandError, GuidedRedoDto, ProbeBlockEndDto } from "../api/dto";
 import { FIX_MIX_UP_LABEL, simplePracticeFeedback, VERDICT_TEXT, verdictOf } from "../app/practiceFeedback";
 import { DetailsToggle, PrimaryAction, quietLine } from "../components/PlainParts";
@@ -99,8 +99,10 @@ export function DiagnosticReviewScreen({
     try {
       // route === "next_block" (same episode continues) or "ordinary_practice"
       // (it doesn't) both resolve the same way: ask whether the episode still
-      // has something to serve, and jump straight in if so.
-      const next = await api.getNextProbeItem(learningObjectId);
+      // has something to serve, and jump straight in if so. A router-owned
+      // episode answers with the router's own question, waited for while it is
+      // being chosen, never another one (G2-R26).
+      const next = await nextDiagnosticItem(learningObjectId, blockEnd.episodeId);
       if (next.active && next.practiceItemId) {
         onContinueDiagnostic(next.practiceItemId);
         return;

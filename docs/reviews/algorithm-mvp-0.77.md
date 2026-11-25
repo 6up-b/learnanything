@@ -71,6 +71,12 @@ mvp-0.76's. Owner rule: a logged propensity is exactly the served distribution.
   the first). The upgrade history pins a real predecessor decision and answers it after the activation. Tests:
   `tests/test_probe_router_continuation.py::test_a_rebuild_after_a_router_stop_reproduces_the_live_rows_and_writes_no_ledger`,
   `tests/test_probe_router_replay.py::test_a_predecessor_decisions_pin_answered_after_activation_rebuilds_to_the_live_rows`.
+- G2-R26 (finding 6): one resolver for a router-owned episode's next question (`probe_controls.router_next`:
+  pending, the exact standing presentation, or the completed transition; it retires a pin that became protected),
+  read by the sidecar's `get_next_probe_item` and the terminal client; the desktop's Continue waits while the router
+  chooses and opens only its question (`app/routerDecisionPoll.nextDiagnosticItem`). Tests:
+  `tests/test_probe_router_continuation.py` (Continue on both sides of the worker's commit, after a stop, a protected
+  pin, the terminal client), `apps/learnloop-tauri/src/screens/DiagnosticReviewScreen.routerContinue.test.tsx`.
 
 ## Pins and goldens
 

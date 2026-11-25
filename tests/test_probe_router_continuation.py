@@ -312,3 +312,71 @@ def test_a_replacement_check_keeps_the_decisions_instrument_exclusions(tmp_path,
     arranged = M._replacement_check(case.vault, case.repository, "dec_probe", lo, answered_item=None, serving=None,
                                     now=SystemClock().now(), clock=None, fresh=fresh, exclude=exclude)
     assert arranged.commitment_id != "cm_other" and arranged.practice_item_id not in exclude
+
+
+# -- G2-R26: one resolver for "Continue", read by the desktop and the terminal client --------------------------------
+
+
+def _next(case, **params) -> dict:
+    return call(case.ctx, "get_next_probe_item", {"learningObjectId": case.vault.practice_items[SECOND]
+                                                  .learning_object_id, **params})
+
+
+def test_continue_opens_the_routers_question_on_both_sides_of_its_decision(tmp_path, monkeypatch):
+    case = _answered(tmp_path, monkeypatch, u=0.0)
+    # Before the router's job decides: pending, and no other instrument is offered or committed.
+    before = _next(case)
+    assert (before["active"], before["routerState"], before["practiceItemId"]) == (False, "pending", None)
+    assert case.repository.active_probe_presentation(case.episode_id) is None
+    _job(case)
+    standing = case.repository.active_probe_presentation(case.episode_id)
+    after = _next(case)
+    assert (after["active"], after["routerState"]) == (True, "standing")
+    assert (after["practiceItemId"], after["presentationId"]) == (SECOND, standing.id)
+    # Opening it serves that exact presentation.
+    served = call(case.ctx, "get_probe_contract", {"practiceItemId": SECOND, "sessionId": "sess"})
+    assert served["active"] is True and served["presentationId"] == standing.id
+
+
+def test_continue_after_a_router_stop_reports_the_transition(tmp_path, monkeypatch):
+    case = _answered(tmp_path, monkeypatch, u=0.9)
+    _job(case)
+    done = _next(case, episodeId=case.episode_id)
+    assert (done["active"], done["routerState"], done["episodeStatus"]) == (False, "completed", "complete")
+
+
+def test_the_resolver_retires_a_pin_that_became_protected(tmp_path, monkeypatch):
+    from learnloop.diagnosis import probe_episodes
+
+    case = _answered(tmp_path, monkeypatch, u=0.0)
+    _job(case)
+    standing = case.repository.active_probe_presentation(case.episode_id)
+    real = probe_episodes.item_refusals
+    monkeypatch.setattr(probe_episodes, "item_refusals", lambda vault, repository, items: {
+        **real(vault, repository, items), **{item.id: "protected_exam_material" for item in items if item.id == SECOND}})
+    retired = _next(case)
+    assert (retired["active"], retired["routerState"]) == (False, "pending")
+    assert case.repository.probe_presentation(standing.id).status == "ended"
+    assert case.repository.active_probe_presentation(case.episode_id) is None
+
+
+def test_the_terminal_client_serves_the_routers_standing_question(tmp_path, monkeypatch):
+    pytest.importorskip("textual")  # the TUI needs the optional `tui` extra
+    from types import SimpleNamespace
+
+    from learnloop.ai import routing
+    from learnloop.tui.screens.practice import PracticeScreen
+
+    case = _answered(tmp_path, monkeypatch, u=0.0)
+    monkeypatch.setattr(routing, "ready_client_for_task", lambda *_a, **_k: SimpleNamespace(
+        runtime=SimpleNamespace(ready=True), client=object()))
+    state = SimpleNamespace(vault=case.vault, repository=case.repository)
+    lo = case.vault.practice_items[SECOND].learning_object_id
+    pending = PracticeScreen(state, SimpleNamespace(practice_item_id=SECOND, learning_object_id=lo))
+    # Before the decision nothing is committed: the screen is ordinary practice, as the desktop's door answers.
+    assert pending.probe_presentation_id is None and case.repository.active_probe_presentation(case.episode_id) is None
+    _job(case)
+    standing = case.repository.active_probe_presentation(case.episode_id)
+    screen = PracticeScreen(state, SimpleNamespace(practice_item_id=SECOND, learning_object_id=lo))
+    assert screen.probe_presentation_id == standing.id and screen.probe_contract
+    assert case.repository.probe_presentation(standing.id).status == "served"

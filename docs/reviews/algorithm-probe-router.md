@@ -746,3 +746,24 @@ fails the table's `kind` CHECK and is logged and skipped (best-effort), so a rem
   prior) at entry and retarget.
 - **13 (the 0.6 family-repeat multiplier):** a design choice; options in the round's report.
 - **16 (the live-to-rebuild proof):** a live snapshot before the first rebuild, compared row by row.
+
+### Fix round 3, second part (the findings left above)
+
+Same branch, merged with main first. The findings that change a logged propensity, a stored decision's meaning or
+what an episode administers sit under the successor tag **mvp-0.77** (`docs/reviews/algorithm-mvp-0.77.md`, one
+constant, one upgrade row: an idempotent projection; both sides of the tag tested); the others are fixed without it.
+
+| Finding | Class (generator) | Disposition |
+|---|---|---|
+| 5 (R25) | A live step the probability calculation does not recompose | Fixed under mvp-0.77: the router pin's promotion runs inside `compose`; a head mismatch refuses the offer. |
+| 6 (R26) | Two clients each deciding what continues a router-owned episode | Fixed: `probe_controls.router_next`, read by the sidecar and the terminal client; the desktop waits for the router's question. |
+| 9 (R29) | An exclusion consulted on one path of a decision's measurement | Fixed: sharing and replacement carry the probe decision's instrument exclusions. |
+| 11 (R31) | A second derivation of a value the decision fixed | Fixed under mvp-0.77: entry and retarget bind the valued lock. |
+| 13 (R33) | A made-up constant in a ranking | Fixed under mvp-0.77 (owner decision, option (a)): expected information over the observed posterior; the field retired. |
+| 14 (R34) | A propensity read through a tolerance instead of the support | Fixed under mvp-0.77: `Draw.logged_propensity`. |
+| 16 (R36) | A proof that compares a rebuild with a rebuild | Fixed: live snapshot before the first rebuild, row by row; a real predecessor decision answered after activation. |
+| R18 residue | A lookup and an insert in two transactions | Fixed: one write transaction. |
+
+**Stopped:** the remint's `probe_reminted` interaction event (and, same class, `rung_variant_requested` from the rung
+variants) fails `interaction_events.kind`'s CHECK (migration 203's vocabulary) and is swallowed by a best-effort
+`except Exception`. Making it recordable needs a migration widening the CHECK; the orchestrator decides (277).

@@ -1452,7 +1452,11 @@ export interface StopProbeResultDto {
 export interface GetNextProbeItemDto {
   version: number;
   active: boolean;
-  practiceItemId?: string;
+  practiceItemId?: string | null;
+  /** A router-owned episode (G2-R26): the router has not decided yet, its question stands, or the episode is done. */
+  routerState?: "pending" | "standing" | "completed";
+  presentationId?: string | null;
+  episodeStatus?: string | null;
 }
 
 /** A source ref resolved to displayable content for the source-review panel. */

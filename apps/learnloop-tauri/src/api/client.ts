@@ -634,8 +634,8 @@ export const api = {
     call<ProbeContractDto>("get_probe_contract", { practiceItemId, sessionId: sessionId ?? null }),
   stopProbeDiagnosing: (practiceItemId: string) =>
     mutating(ATTEMPT_TAGS, call<StopProbeResultDto>("stop_probe_diagnosing", { practiceItemId })),
-  getNextProbeItem: (learningObjectId: string) =>
-    call<GetNextProbeItemDto>("get_next_probe_item", { learningObjectId }),
+  getNextProbeItem: (learningObjectId: string, episodeId?: string | null) =>
+    call<GetNextProbeItemDto>("get_next_probe_item", episodeId ? { learningObjectId, episodeId } : { learningObjectId }),
   savePracticeDraft: (input: {
     sessionId: string;
     practiceItemId: string;

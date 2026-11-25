@@ -2,6 +2,7 @@ import { useCloseWithFlush } from "../app/useCloseWithFlush";
 import { registerVaultDraft } from "../app/vaultTransition";
 import { type CSSProperties, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
+import { nextDiagnosticItem } from "../app/routerDecisionPoll";
 import type {
   AttemptProgress,
   AttemptResultDto,
@@ -1300,7 +1301,7 @@ export function PracticeScreen({
     // episode serves next, instead of round-tripping through the queue.
     if (result.probeEpisode?.feedbackDeferred) {
       try {
-        const next = await api.getNextProbeItem(learningObjectId);
+        const next = await nextDiagnosticItem(learningObjectId, null, cancelled);
         if (cancelled()) return false;
         if (next.active && next.practiceItemId) {
           onContinueDiagnostic(next.practiceItemId);

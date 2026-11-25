@@ -145,6 +145,60 @@ def episode_contract(
     return contract
 
 
+#: :func:`router_next`'s states: the router has not decided the next question yet; its question stands; the episode
+#: is done (its status says how: complete, parked for questions, converted to teaching).
+PENDING = "pending"
+STANDING = "standing"
+COMPLETED = "completed"
+
+
+@dataclass(frozen=True)
+class RouterNext:
+    """Where a router-owned episode's next question stands, for every client's "Continue" (G2-R26)."""
+
+    state: str
+    episode_id: str
+    practice_item_id: str | None = None
+    presentation_id: str | None = None
+    episode_status: str | None = None
+    completion_reason: str | None = None
+
+
+def router_next(vault: Any, repository: Any, learning_object_id: str, *, episode_id: str | None = None,
+                clock: Clock | None = None) -> RouterNext | None:
+    """The one resolver of a router-owned episode's next question, which the desktop's and the terminal's Continue
+    both read: ``pending`` (the router's decision job has not decided yet: no door commits another instrument),
+    ``standing`` (the exact presentation the router's decision pinned: open and answer that one) or ``completed``
+    (the transition: the episode's status and reason). None when the episode is no router's (the ordinary peek
+    applies). A pin whose item became protected or ineligible (``item_refusals``) is retired here, unshown, and the
+    router decides again (``pending``). ``episode_id`` names the episode a block end reported (a completed episode is
+    no longer the learning object's open one)."""
+
+    from learnloop.algorithm_versions import probe_router_on
+    from learnloop.diagnosis.probe_episodes import item_refusals, router_pinned_item, router_selected_episode
+
+    if not probe_router_on(vault.config):
+        return None
+    episode = (repository.probe_episode(episode_id) if episode_id is not None
+               else repository.open_probe_episode(learning_object_id))
+    if episode is None or str(episode.learning_object_id) != str(learning_object_id):
+        return None
+    if not router_selected_episode(vault, repository, episode):
+        return None
+    if episode.status != "in_progress":
+        return RouterNext(COMPLETED, str(episode.id), episode_status=str(episode.status),
+                          completion_reason=episode.completion_reason)
+    item_id = router_pinned_item(repository, episode)
+    standing = repository.active_probe_presentation(str(episode.id)) if item_id is not None else None
+    if item_id is not None and standing is not None:
+        item = vault.practice_items.get(item_id)
+        if item is not None and not item_refusals(vault, repository, [item]):
+            return RouterNext(STANDING, str(episode.id), practice_item_id=item_id, presentation_id=str(standing.id))
+        # Protected or no longer eligible since it was pinned: retired unshown; its boundary reopens.
+        repository.end_probe_presentation(standing.id, end_reason="invalidated", clock=clock)
+    return RouterNext(PENDING, str(episode.id))
+
+
 def next_probe_item(
     vault: LoadedVault,
     repository: Repository,
