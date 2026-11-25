@@ -541,7 +541,7 @@ def _run_one_episode(
                 presentation = commit_presentation(
                     vault, repository, episode, top, candidates=entries, clock=step_clock
                 )
-                serve_presentation(repository, presentation.id, clock=step_clock)
+                serve_presentation(repository, presentation.id, vault=vault, clock=step_clock)
                 break
             except RoutineDisplayCovered:
                 # UX Phase 4 round 7: its answer was shown on a routine

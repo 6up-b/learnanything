@@ -47,6 +47,7 @@ from learnloop.diagnosis.probe_presentations import (
     LEARNER_REFUSED_PROBE,
     PROBE_ITEM_ANSWER_SHOWN,
     LearnerRefusedPin,
+    ProtectedInstrument,
     RoutineDisplayCovered,
     commit_item_presentation,
     probe_serving_block_reason,
@@ -55,6 +56,7 @@ from learnloop.diagnosis.probe_presentations import (
     serve_presentation,
     validate_presentation_for_submission,
 )
+from learnloop.diagnosis.probe_episodes import PROBE_ITEM_PROTECTED
 from learnloop.diagnosis.probes import probe_posterior
 from learnloop.scheduling.scheduler import SchedulerSession, serve_due_queue
 from learnloop.attempts.trace_evidence import (
@@ -604,7 +606,12 @@ def _probe_contract(ctx: SidecarContext, vault: Any, repository: Any, item: Any,
         )
         if validation.valid:
             try:
-                serve_presentation(repository, active.id)
+                serve_presentation(repository, active.id, vault=vault)
+            except ProtectedInstrument:
+                # Exam material the session serve refuses: ended unshown, and the router (when it owns the episode)
+                # decides its next observation again.
+                ctx.post_attempt_worker.request_probe_router()
+                return versioned({"active": False, "reason": PROBE_ITEM_PROTECTED})
             except RoutineDisplayCovered:
                 # Committed before the item's answer was shown on a routine
                 # display: ended, and the item is ordinary practice (round 7).

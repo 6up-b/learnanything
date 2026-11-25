@@ -2805,9 +2805,9 @@ def test_f1l_a_presentation_committed_before_a_display_is_not_served_inside_its_
     later = FrozenClock(CLOCK.now() + timedelta(minutes=2))
     if covered:
         with pytest.raises(RoutineDisplayCovered):
-            serve_presentation(repository, presentation.id, clock=later)
+            serve_presentation(repository, presentation.id, vault=loaded, clock=later)
     else:
-        serve_presentation(repository, presentation.id, clock=later)
+        serve_presentation(repository, presentation.id, vault=loaded, clock=later)
 
     after = repository.probe_presentation(presentation.id)
     assert after.status == ("ended" if covered else "served")

@@ -51,7 +51,7 @@ def _setup_probe_observation(tmp_path):
         if entry.item.id == ITEM_ID
     )
     presentation = commit_presentation(loaded, repository, episode, eligible, clock=CLOCK)
-    serve_presentation(repository, presentation.id, clock=CLOCK)
+    serve_presentation(repository, presentation.id, vault=loaded, clock=CLOCK)
 
     attempt_id = new_ulid()
     apply_attempt(

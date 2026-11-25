@@ -1305,7 +1305,9 @@ SURFACE_SETS: Mapping[str, str] = MappingProxyType({
     # May an item be served, picked or measured now?
     "routine_serving": HELD_OUT,         # serving_exclusions: routine and out-of-timing (held_out_items)
     "practice_pick": HELD_OUT,           # instructional.practice.refuse_protected_pick
-    "session_serve": HELD_OUT,           # learnloop_sidecar.serving.refuse_held_out_item
+    "session_serve": HELD_OUT,           # serve_refusals: learnloop_sidecar.serving.refuse_held_out_item, and every
+                                         # probe instrument's selection, offer, acceptance and serve (the probe door
+                                         # shows its item in the session: diagnosis.probe_episodes.item_refusals)
     "exposure_with_held_out": HELD_OUT,  # exposed_items(..., with_held_out=True)
     "exposure": NO_EXAM_SET,             # exposed_items: what the learner was shown
     "cold_administration": NO_EXAM_SET,  # instructional.policy.cold_administration_open
@@ -1691,6 +1693,25 @@ def item_exam_status(item: Any, *, material: ExamMaterial | None = None,
                           spans=tuple(found))
 
 
+def serve_refusals(vault: Any, repository: Any, items: Iterable[Any], *, surface: str) -> dict[str, str]:
+    """``{item id: why}`` for the items among ``items`` a serve on ``surface`` refuses: reserved for a goal's held-out
+    exam (:data:`EXAM_RESERVED`, whatever ``goals.held_out_selection`` says), or made from the material the surface's
+    row of :data:`SURFACE_SETS` withholds (:data:`HELD_OUT_MATERIAL`, under ``goals.held_out_selection``). The one
+    verdict the session serve and every probe door ask, so a door that shows an item in the session never shows
+    one the session serve would refuse."""
+
+    items = list(items)
+    if not items:
+        return {}
+    reserved = {str(item_id) for item_id in repository.reserved_exam_pool_item_ids()}
+    found = {str(item.id): EXAM_RESERVED for item in items if str(item.id) in reserved}
+    rest = [item for item in items if str(item.id) not in found]
+    if rest and held_out_selection_active(vault):
+        for item_id in held_out_item_ids(rest, surface_material(vault, repository, surface)):
+            found[str(item_id)] = HELD_OUT_MATERIAL
+    return found
+
+
 def exam_reserved(repository: Any, item_id: str | None) -> bool:
     """Whether the item is reserved for a goal's held-out exam (an unreleased exam-pool row)."""
 
@@ -1758,6 +1779,7 @@ __all__ = [
     "scope_only_material",
     "scope_reading_of",
     "selection_marks_exact",
+    "serve_refusals",
     "source_marks",
     "reference_keys",
     "source_ref_keys",

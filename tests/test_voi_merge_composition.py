@@ -539,7 +539,7 @@ def _answer_presentation(vault, repository, presentation, session_id, *, score=4
 
     # The sidecar offer was built on the wall clock: answer after it.
     later = FrozenClock(datetime.now(UTC) + timedelta(minutes=1))
-    serve_presentation(repository, presentation.id, clock=later)
+    serve_presentation(repository, presentation.id, vault=vault, clock=later)
     attempt_id = new_ulid()
     apply_attempt(
         vault,

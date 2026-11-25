@@ -130,7 +130,7 @@ def _commit(loaded, repository, episode, *, item_id):
     presentation = commit_presentation(
         loaded, repository, episode, eligible, candidates=candidates, clock=CLOCK
     )
-    serve_presentation(repository, presentation.id, clock=CLOCK)
+    serve_presentation(repository, presentation.id, vault=loaded, clock=CLOCK)
     return presentation
 
 

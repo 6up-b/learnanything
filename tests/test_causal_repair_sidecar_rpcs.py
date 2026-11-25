@@ -471,7 +471,7 @@ def test_an_open_episode_with_observations_refuses_the_offer_with_a_typed_reason
         if entry.item.id == PROBE_ITEM
     )
     presentation = commit_presentation(vault, repository, episode, eligible, clock=CLOCK)
-    serve_presentation(repository, presentation.id, clock=CLOCK)
+    serve_presentation(repository, presentation.id, vault=vault, clock=CLOCK)
     # §5.8: only an approved diagnostic grading source yields a qualifying
     # observation, so this goes through `apply_attempt` rather than a self-grade.
     apply_attempt(

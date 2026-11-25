@@ -31,13 +31,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from learnloop.content.sources.exam_material import (
-    HELD_OUT_ITEM_REFUSAL,
-    exam_reserved,
-    held_out_item_ids,
-    held_out_selection_active,
-    surface_material,
-)
+from learnloop.content.sources.exam_material import EXAM_RESERVED, HELD_OUT_ITEM_REFUSAL, serve_refusals
 from learnloop.instructional.practice import EXAM_RESERVED_PICK
 from learnloop.scheduling.device_eligibility import (
     DEVICE_POLICY, DEVICE_POLICY_MEDIA, DEVICE_POLICY_OFF, DeviceFilter, ineligibility_reason,
@@ -260,17 +254,18 @@ def refuse_held_out_item(vault: LoadedVault, repository: Any, item: PracticeItem
     """A session serve of an item reserved for a goal's held-out exam, or made
     from held-out material, is refused. The reservation is refused whatever the
     kill switch says (as a pick is, ``refuse_protected_pick``): the switch only
-    governs the held-out-material rule."""
+    governs the held-out-material rule. The verdict is
+    ``exam_material.serve_refusals`` on the ``session_serve`` row, the one every
+    probe door asks too."""
 
-    if exam_reserved(repository, item.id):
+    why = serve_refusals(vault, repository, [item], surface="session_serve").get(str(item.id))
+    if why == EXAM_RESERVED:
         raise SidecarError(
             EXAM_RESERVED_ERROR_CODE,
             f"{item.id}: {EXAM_RESERVED_PICK}.",
             details={"practice_item_id": item.id},
         )
-    if not held_out_selection_active(vault):
-        return
-    if held_out_item_ids([item], surface_material(vault, repository, "session_serve")):
+    if why is not None:
         raise SidecarError(
             HELD_OUT_MATERIAL_ERROR_CODE,
             f"{item.id}: {HELD_OUT_ITEM_REFUSAL}.",

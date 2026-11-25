@@ -68,7 +68,7 @@ def test_family_redundancy_penalty_after_observation(tmp_path):
     hypothesis_set = episode_hypothesis_set(repository, episode)
     first = next(entry for entry in before if entry.item.id == ITEM_ID)
     presentation = commit_presentation(loaded, repository, episode, first, clock=CLOCK)
-    serve_presentation(repository, presentation.id, clock=CLOCK)
+    serve_presentation(repository, presentation.id, vault=loaded, clock=CLOCK)
     _submit(loaded, repository, item_id=ITEM_ID, presentation_id=presentation.id)
 
     episode = repository.probe_episode(episode.id)
@@ -97,7 +97,7 @@ def test_sequential_selection_conditions_on_observed_posterior(tmp_path):
     )
     first = next(entry for entry in entry_prior_ranked if entry.item.id == ITEM_ID)
     presentation = commit_presentation(loaded, repository, episode, first, clock=CLOCK)
-    serve_presentation(repository, presentation.id, clock=CLOCK)
+    serve_presentation(repository, presentation.id, vault=loaded, clock=CLOCK)
     _submit(loaded, repository, item_id=ITEM_ID, presentation_id=presentation.id)
 
     episode = repository.probe_episode(episode.id)

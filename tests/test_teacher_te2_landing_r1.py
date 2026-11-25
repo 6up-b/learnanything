@@ -197,7 +197,7 @@ def test_fg1s_presentation_path_stamps_the_submissions_identity_and_its_regrade_
         loaded, repository, episode, hypothesis_set=episode_hypothesis_set(repository, episode))
         if entry.item.id == ITEM_ID)
     presentation = commit_presentation(loaded, repository, episode, eligible, clock=CLOCK)
-    serve_presentation(repository, presentation.id, clock=CLOCK)
+    serve_presentation(repository, presentation.id, vault=loaded, clock=CLOCK)
     attempt_id = new_ulid()
     apply_attempt(loaded, repository, ApplyAttemptInput(
         draft=AttemptDraft(practice_item_id=ITEM_ID, learner_answer_md="answer", attempt_type="diagnostic_probe",

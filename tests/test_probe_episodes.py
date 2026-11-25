@@ -333,7 +333,7 @@ def test_presentation_activity_disqualification_precedes_live_projection(tmp_pat
         },
         clock=CLOCK,
     )
-    serve_presentation(repository, presentation.id, clock=CLOCK)
+    serve_presentation(repository, presentation.id, vault=loaded, clock=CLOCK)
 
     # An ordinary attempt submitted against a probe presentation is an
     # instructional diagnostic. Immutable attempt signals alone look like a

@@ -1286,9 +1286,11 @@ ROUTER_DECIDES = "router_decides"
 
 def candidate_unservable(vault: Any, repository: Repository, candidate: Mapping[str, Any] | None) -> str | None:
     """Why the quick check on ``candidate`` could not be administered now, or None: the executability read the
-    router draws on and the status reads back. Its item is in the vault and the learner has never answered it or a
-    near-clone of it (the probe's never-seen rule). An answer shown on a routine display is the offer's own refusal
-    at acceptance (``probe_offer``), read there."""
+    router draws on, the status reads back and acceptance asks again. Its item is in the vault and passes the one
+    item-level eligibility read instrument selection makes (``probe_episodes.item_refusals``: active in the vault and
+    in its practice-item state, never answered nor a near-clone of an answered item, renderable, and not exam material
+    the session serve refuses), so the offer never names an instrument acceptance would refuse. An answer shown on a
+    routine display is the offer's own refusal at acceptance (``probe_offer``), read there."""
 
     from learnloop.diagnosis import probe_episodes
 
@@ -1298,10 +1300,7 @@ def candidate_unservable(vault: Any, repository: Repository, candidate: Mapping[
     item = vault.practice_items.get(item_id) if vault is not None else None
     if item is None:
         return "probe_item_missing_from_vault"
-    attempted_ids, attempted_surfaces = probe_episodes.administered_surface_exclusions(vault, repository)
-    if item_id in attempted_ids or probe_episodes.surface_group_id(item) in attempted_surfaces:
-        return "probe_item_already_answered"
-    return None
+    return probe_episodes.item_refusals(vault, repository, [item]).get(item.id)
 
 
 def _routed(

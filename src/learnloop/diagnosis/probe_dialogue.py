@@ -35,6 +35,7 @@ from learnloop.diagnosis.probe_episodes import (
     episode_hypothesis_set,
 )
 from learnloop.diagnosis.probe_presentations import (
+    ProtectedInstrument,
     RoutineDisplayCovered,
     commit_presentation,
     serve_presentation,
@@ -327,9 +328,10 @@ def next_dialogue_turn(
             },
             clock=clock,
         )
-        serve_presentation(repository, presentation.id, clock=clock)
-    except RoutineDisplayCovered:
-        # UX Phase 4 rounds 6 and 7 (a turn's instance is new, so in practice never).
+        serve_presentation(repository, presentation.id, vault=vault, clock=clock)
+    except (RoutineDisplayCovered, ProtectedInstrument):
+        # UX Phase 4 rounds 6 and 7 (a turn's instance is new, so in practice never); a protected turn item is ended
+        # unshown.
         return state, None
     turn = DialogueTurn(
         kind=kind,

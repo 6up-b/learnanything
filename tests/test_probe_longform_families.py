@@ -305,7 +305,7 @@ def test_longform_observation_records_trace_and_bounded_mass(tmp_path):
     instruments = eligible_instruments(loaded, repository, episode, hypothesis_set=hypothesis_set)
     eligible = next(entry for entry in instruments if entry.item.id == PROC_ITEM)
     presentation = commit_presentation(loaded, repository, episode, eligible, clock=CLOCK)
-    serve_presentation(repository, presentation.id, clock=CLOCK)
+    serve_presentation(repository, presentation.id, vault=loaded, clock=CLOCK)
 
     # Correct strategy and setup; execution diverges; the result depends on
     # execution, so grading it tells us nothing new (§8.2).

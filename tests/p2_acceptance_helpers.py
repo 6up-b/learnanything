@@ -79,7 +79,7 @@ def _drive_probe_item(vault, repo, episode_id: str, item_id: str, score: int) ->
         e for e in eligible_instruments(vault, repo, episode, hypothesis_set=hs) if e.item.id == item_id
     )
     pres = commit_presentation(vault, repo, episode, eligible, clock=CLOCK)
-    serve_presentation(repo, pres.id, clock=CLOCK)
+    serve_presentation(repo, pres.id, vault=vault, clock=CLOCK)
     apply_attempt(
         vault, repo,
         ApplyAttemptInput(

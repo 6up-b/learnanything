@@ -32,11 +32,12 @@ def test_a_reserved_item_is_refused_at_the_session_serve_door(served, monkeypatc
 
 
 def test_the_reservation_refusal_does_not_follow_the_held_out_selection_switch(served, monkeypatch):
-    import learnloop_sidecar.serving as serving
+    # The switch is read by the one verdict the session serve asks (``exam_material.serve_refusals``).
+    import learnloop.content.sources.exam_material as EM
 
     vault, repository, item = served
     _reserve(monkeypatch, item.id)
-    monkeypatch.setattr(serving, "held_out_selection_active", lambda _vault: False)
+    monkeypatch.setattr(EM, "held_out_selection_active", lambda _vault: False)
     with pytest.raises(SidecarError):
         refuse_held_out_item(vault, repository, item)
 

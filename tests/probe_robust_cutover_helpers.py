@@ -45,7 +45,7 @@ def _record_full_score_probe(loaded, repository, episode, item_id=ITEM_ID):
         if entry.item.id == item_id
     )
     presentation = commit_presentation(loaded, repository, episode, eligible, clock=CLOCK)
-    serve_presentation(repository, presentation.id, clock=CLOCK)
+    serve_presentation(repository, presentation.id, vault=loaded, clock=CLOCK)
     attempt_id = new_ulid()
     apply_attempt(
         loaded,

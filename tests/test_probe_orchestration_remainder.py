@@ -213,7 +213,7 @@ def test_onboarding_ceiling_deactivates_probes_until_practice_starts(tmp_path):
     hypothesis_set = episode_hypothesis_set(repository, episode)
     eligible = eligible_instruments(loaded, repository, episode, hypothesis_set=hypothesis_set)[0]
     presentation = commit_presentation(loaded, repository, episode, eligible, clock=CLOCK)
-    serve_presentation(repository, presentation.id, clock=CLOCK)
+    serve_presentation(repository, presentation.id, vault=loaded, clock=CLOCK)
     _submit(
         loaded, repository, score=4, attempt_type="diagnostic_probe",
         presentation_id=presentation.id,
@@ -289,7 +289,7 @@ def test_session_cap_blocks_further_probe_serving(tmp_path):
     hypothesis_set = episode_hypothesis_set(repository, episode)
     eligible = eligible_instruments(loaded, repository, episode, hypothesis_set=hypothesis_set)[0]
     presentation = commit_presentation(loaded, repository, episode, eligible, clock=CLOCK)
-    serve_presentation(repository, presentation.id, clock=CLOCK)
+    serve_presentation(repository, presentation.id, vault=loaded, clock=CLOCK)
     _submit(
         loaded, repository, score=4, attempt_type="diagnostic_probe",
         presentation_id=presentation.id, session_id="sess_cap",
@@ -444,7 +444,7 @@ def test_answer_confidence_is_logged_on_attempt_and_observation(tmp_path):
     hypothesis_set = episode_hypothesis_set(repository, episode)
     eligible = eligible_instruments(loaded, repository, episode, hypothesis_set=hypothesis_set)[0]
     presentation = commit_presentation(loaded, repository, episode, eligible, clock=CLOCK)
-    serve_presentation(repository, presentation.id, clock=CLOCK)
+    serve_presentation(repository, presentation.id, vault=loaded, clock=CLOCK)
 
     attempt_id, _result = _submit(
         loaded, repository, score=4, attempt_type="diagnostic_probe",

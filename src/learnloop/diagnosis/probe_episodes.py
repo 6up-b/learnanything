@@ -860,6 +860,51 @@ def administered_surface_exclusions(
     return attempted_ids, attempted_surfaces
 
 
+#: Why an item is not a probe instrument now, whatever the episode (:func:`item_refusals`).
+PROBE_ITEM_RETIRED = "probe_item_retired"
+PROBE_ITEM_INACTIVE = "probe_item_inactive"
+PROBE_ITEM_ALREADY_ANSWERED = "probe_item_already_answered"
+PROBE_ITEM_UNRENDERABLE = "probe_item_unrenderable"
+PROBE_ITEM_PROTECTED = "probe_item_protected"
+
+
+def item_refusals(vault: LoadedVault, repository: Repository, items: Iterable[PracticeItem]) -> dict[str, str]:
+    """``{item id: why}`` for the items that cannot be a probe instrument now, whatever the episode: the one item-level
+    eligibility read that instrument selection (:func:`eligible_instruments`), the learner lane's offer, its reread and
+    its acceptance share, so nothing is offered that acceptance would refuse.
+
+    * retired, or its practice-item state inactive (an inactive item is never administered);
+    * answered before, or a near-clone of an answered item (the never-before-seen rule,
+      :func:`administered_surface_exclusions`);
+    * a stimulus the surface cannot render (``unservable_reason``);
+    * exam material the session serve refuses (``exam_material.serve_refusals`` on the ``session_serve`` row: reserved
+      for a goal's held-out exam, or made from held-out material). The probe door shows its item in the session, so it
+      asks the session serve's verdict before anything is priced, reserved or marked served."""
+
+    from learnloop.content.sources.exam_material import serve_refusals
+
+    items = list(items)
+    if not items:
+        return {}
+    attempted_ids, attempted_surfaces = administered_surface_exclusions(vault, repository)
+    item_states = repository.practice_item_states()
+    found: dict[str, str] = {}
+    for item in items:
+        state = item_states.get(item.id)
+        if item.status != "active":
+            found[item.id] = PROBE_ITEM_RETIRED
+        elif state is not None and not state.active:
+            found[item.id] = PROBE_ITEM_INACTIVE
+        elif item.id in attempted_ids or surface_group_id(item) in attempted_surfaces:
+            found[item.id] = PROBE_ITEM_ALREADY_ANSWERED
+        elif unservable_reason(item) is not None:
+            found[item.id] = PROBE_ITEM_UNRENDERABLE
+    rest = [item for item in items if item.id not in found]
+    for item_id in serve_refusals(vault, repository, rest, surface="session_serve"):
+        found[item_id] = PROBE_ITEM_PROTECTED
+    return found
+
+
 def eligible_instruments(
     vault: LoadedVault,
     repository: Repository,
@@ -911,7 +956,6 @@ def eligible_instruments(
         live = episode_posterior(vault, repository, episode, hypothesis_set=hypothesis_set)
         posterior = live.posterior if live is not None else hypothesis_set.prior
     belief = dict(posterior)
-    item_states = repository.practice_item_states()
 
     # §5.4 exposure rule: an item already observed in this episode — or another
     # item of an already-observed surface group — is a disallowed repeat.
@@ -953,32 +997,23 @@ def eligible_instruments(
     # history: familiarity DISCOUNTS ordinary-practice priority, but for probe
     # candidacy it is a hard exclusion. The scheduler annotates the exclusion
     # (`probe_surface_repeat_excluded`) so it never fails silently.
-    attempted_ids, attempted_surfaces = administered_surface_exclusions(vault, repository)
-    used_item_ids |= attempted_ids
-    used_surfaces |= attempted_surfaces
+    # The whole-history half of that rule, an inactive or retired item, an unrenderable stimulus (Meas §3.A2/§3.A3: a
+    # probe's outcome moves belief, so an unanswerable instrument would move it toward the hypothesis whose failure the
+    # learner could not avoid) and exam material the session serve refuses are the one item-level read
+    # (:func:`item_refusals`) the learner lane's offer and acceptance share.
+    on_object = [
+        item for item in vault.practice_items.values()
+        if item.status == "active"
+        and item.learning_object_id == episode.learning_object_id
+        and item.id not in staged_owned_item_ids
+        and item.id not in used_item_ids
+        and surface_group_id(item) not in used_surfaces
+    ]
+    refused = item_refusals(vault, repository, on_object)
 
     resolved: list[tuple[PracticeItem, CompiledInstrument, dict[str, str]]] = []
-    for item in vault.practice_items.values():
-        if item.status != "active":
-            continue
-        if item.learning_object_id != episode.learning_object_id:
-            continue
-        if item.id in staged_owned_item_ids:
-            continue
-        if item.id in used_item_ids:
-            continue
-        if surface_group_id(item) in used_surfaces:
-            continue
-        state = item_states.get(item.id)
-        if state is not None and not state.active:
-            continue
-        # Meas §3.A2/§3.A3: an item whose stimulus the surface cannot render is
-        # not administrable. A probe is the worst place to miss this — its
-        # outcome updates a hypothesis posterior, so serving an unanswerable
-        # instrument does not merely waste an administration, it moves belief
-        # toward the hypothesis whose predicted failure the learner was
-        # structurally unable to avoid.
-        if unservable_reason(item) is not None:
+    for item in on_object:
+        if item.id in refused:
             continue
         instrument_and_map = resolve_instrument(vault, repository, item, hypothesis_set)
         if instrument_and_map is None:

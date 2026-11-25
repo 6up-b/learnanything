@@ -110,5 +110,5 @@ def _commit(loaded, repository, episode, *, item_id: str = ITEM_ID):
     instruments = eligible_instruments(loaded, repository, episode, hypothesis_set=hypothesis_set)
     eligible = next(entry for entry in instruments if entry.item.id == item_id)
     presentation = commit_presentation(loaded, repository, episode, eligible, clock=CLOCK)
-    serve_presentation(repository, presentation.id, clock=CLOCK)
+    serve_presentation(repository, presentation.id, vault=loaded, clock=CLOCK)
     return presentation

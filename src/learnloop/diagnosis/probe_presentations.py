@@ -407,21 +407,44 @@ def learner_refused_pin(repository: Repository, presentation: ProbePresentationR
     return preference if preference in REFUSING_PREFERENCES else None
 
 
+class ProtectedInstrument(Exception):
+    """A committed presentation's item became exam material the session serve refuses (reserved for a goal's
+    held-out exam, or made from held-out material) after it was committed: ended unshown, never served."""
+
+    def __init__(self, presentation_id: str, practice_item_id: str, reason: str) -> None:
+        super().__init__(f"{presentation_id}: {practice_item_id} is protected exam material ({reason})")
+        self.presentation_id = presentation_id
+        self.practice_item_id = practice_item_id
+        self.reason = reason
+
+
 def serve_presentation(
     repository: Repository,
     presentation_id: str,
     *,
+    vault: LoadedVault,
     clock: Clock | None = None,
 ) -> None:
     """Mark a committed presentation served: the administration itself, and
-    the only path to ``served``. A presentation committed before its item's
-    answer was shown on a routine display that still covers now is ended
-    (``invalidated``) instead, and :class:`RoutineDisplayCovered` raised (UX
-    Phase 4 round 7). A learner-lane pin its learner refused after pinning is
-    ended (``abandoned``) instead, and :class:`LearnerRefusedPin` raised."""
+    the only path to ``served``. A presentation whose item the session serve
+    now refuses as exam material (``probe_episodes.item_refusals``: reserved for
+    a held-out exam, or made from held-out material) is ended (``invalidated``)
+    instead, and :class:`ProtectedInstrument` raised: a router pin that became
+    protected is retired, so its episode's next observation is decided again. A
+    presentation committed before its item's answer was shown on a routine
+    display that still covers now is ended (``invalidated``) instead, and
+    :class:`RoutineDisplayCovered` raised (UX Phase 4 round 7). A learner-lane
+    pin its learner refused after pinning is ended (``abandoned``) instead, and
+    :class:`LearnerRefusedPin` raised."""
+
+    from learnloop.diagnosis.probe_episodes import PROBE_ITEM_PROTECTED, item_refusals
 
     presentation = repository.probe_presentation(presentation_id)
     if presentation is not None:
+        item = vault.practice_items.get(str(presentation.practice_item_id))
+        if item is not None and item_refusals(vault, repository, [item]).get(item.id) == PROBE_ITEM_PROTECTED:
+            repository.end_probe_presentation(presentation_id, end_reason="invalidated", clock=clock)
+            raise ProtectedInstrument(presentation_id, item.id, PROBE_ITEM_PROTECTED)
         refused = learner_refused_pin(repository, presentation)
         if refused is not None:
             repository.end_probe_presentation(presentation_id, end_reason="abandoned", clock=clock)
@@ -564,9 +587,10 @@ def commit_item_presentation(
             extra_selection_components=extra_selection_components,
             clock=clock,
         )
-        serve_presentation(repository, presentation.id, clock=clock)
-    except RoutineDisplayCovered:
-        # Its answer was just shown: ordinary practice, not a probe (rounds 6, 7).
+        serve_presentation(repository, presentation.id, vault=vault, clock=clock)
+    except (RoutineDisplayCovered, ProtectedInstrument):
+        # Its answer was just shown: ordinary practice, not a probe (rounds 6, 7). Protected exam material is never
+        # selected (``item_refusals``); one protected between the selection and the serve is ended unshown.
         return None
     return presentation
 

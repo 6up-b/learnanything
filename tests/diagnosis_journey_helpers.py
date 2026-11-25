@@ -342,7 +342,7 @@ def probe_case(kind, root, patch):
     presentation = presentations.commit_item_presentation(vault, repo, episode, vault.practice_items[ITEM_ID],
                                                   probes.episode_hypothesis_set(repo, episode), clock=CLOCK)
     assert presentation is not None
-    presentations.serve_presentation(repo, presentation.id, clock=CLOCK)
+    presentations.serve_presentation(repo, presentation.id, vault=vault, clock=CLOCK)
     journey.capture("presented")
     if kind == "held_release":
         from learnloop.attempts.grade_resolution import append_adjudication_evidence_revision

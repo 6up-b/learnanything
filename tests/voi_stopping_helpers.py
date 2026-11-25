@@ -294,7 +294,7 @@ def _answer_probe(vault, repository, *, score: int = 1):
         vault, repository, episode, hypothesis_set=episode_hypothesis_set(repository, episode)
     )[0]
     presentation = commit_presentation(vault, repository, episode, eligible, clock=CLOCK)
-    serve_presentation(repository, presentation.id, clock=CLOCK)
+    serve_presentation(repository, presentation.id, vault=vault, clock=CLOCK)
     apply_attempt(
         vault,
         repository,
