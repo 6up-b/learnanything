@@ -82,6 +82,7 @@ from learnloop.daily_plan.router_runtime import (
     seen,
     wall_now,
 )
+from learnloop.algorithm_versions import probe_router_fixes_on
 from learnloop.ids import new_ulid
 from learnloop.router import mixture as mx
 from learnloop.router import requests as rq
@@ -613,7 +614,7 @@ class RouterChooser:
         return BlockChoice(
             candidate_id=drawn.chosen,
             chosen_by="mixture",
-            propensity=1.0 if drawn.deterministic else drawn.propensity,
+            propensity=drawn.logged_propensity(probe_router_fixes_on(config.algorithms.algorithm_version)),
             why=why or staged.why,
             why_kind=why_kind,  # type: ignore[arg-type]
             router_record=record,
@@ -775,7 +776,7 @@ class RestraintGate:
             **_card_fields(card),
         )
         why = router_why.FOLLOWUP_WAITS if drawn.chosen == CONTINUE_CURRENT else ""
-        return RestraintOutcome(drawn.chosen, 1.0 if drawn.deterministic else drawn.propensity, base, why=why)
+        return RestraintOutcome(drawn.chosen, drawn.logged_propensity(probe_router_fixes_on(config.algorithms.algorithm_version)), base, why=why)
 
     def _state(self, record: Any, current: Any, item: Any) -> tuple[PlanState, list[BlockCandidate]]:
         titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
@@ -958,7 +959,7 @@ class FollowupGate(RestraintGate):
             **_card_fields(card),
         )
         why = router_why.FOLLOWUP_WAITS if drawn.chosen == CONTINUE_CURRENT else ""
-        return RestraintOutcome(drawn.chosen, 1.0 if drawn.deterministic else drawn.propensity, base, why=why,
+        return RestraintOutcome(drawn.chosen, drawn.logged_propensity(probe_router_fixes_on(config.algorithms.algorithm_version)), base, why=why,
                                 wait_feasible=wait_feasible)
 
     def _start_followup(self, key: str, state: PlanState, candidates: list[BlockCandidate], workflow: Mapping[str, Any],

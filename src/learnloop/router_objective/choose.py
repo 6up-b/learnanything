@@ -28,6 +28,7 @@ import math
 from typing import Any
 
 from learnloop import provenance
+from learnloop.algorithm_versions import probe_router_fixes_on
 from learnloop.provenance import DecisionRecord
 from learnloop.router import mixture as mx
 from learnloop.router import why as router_why
@@ -192,7 +193,7 @@ def choose(inputs: ChoiceInputs) -> Choice:
         pi = SC.served_distribution(drawn.pi, coin.rate, support)
         assignments: tuple[Mapping[str, Any], ...] = (SC.pending_assignment(coin, seed=inputs.seed, support=support),)
     else:
-        propensity = 1.0 if drawn.deterministic else drawn.propensity
+        propensity = drawn.logged_propensity(probe_router_fixes_on(inputs.algorithm_version))
         pi = dict(drawn.pi)
         assignments = ()
     decided_by = NO_MODELS if inputs.no_models else MODE
@@ -236,6 +237,8 @@ class PostMissInputs:
     to_other_policy: bool
     epsilon: float
     seed: str
+    #: The vault's tag: from mvp-0.77 the served arm logs 1 only when no other option has mass.
+    algorithm_version: Any
 
 
 @dataclass(frozen=True)
@@ -251,7 +254,8 @@ class PostMissChoice:
     #: The numeric policy's choice when it entered the mix (it answered, inside the support), else None.
     numeric_choice: str | None
     drawn: mx.Draw
-    #: The served arm's logged probability: 1.0 for a draw the floor cannot move, else its exact ``μ``.
+    #: The served arm's logged probability: its exact ``μ`` (1.0 only when no other option has mass; below mvp-0.77,
+    #: 1.0 within the mixture's tolerance of 1).
     propensity: float
 
 
@@ -287,7 +291,7 @@ def post_miss_choice(inputs: PostMissInputs) -> PostMissChoice:
     drawn = mix.draw(support, parts, effective, inputs.epsilon, inputs.seed)
     return PostMissChoice(llm_distribution=llm_dist, rationale=rationale, failed=tuple(failed), effective=effective,
                           components=parts, numeric_choice=numeric_choice, drawn=drawn,
-                          propensity=1.0 if drawn.deterministic else drawn.propensity)
+                          propensity=drawn.logged_propensity(probe_router_fixes_on(inputs.algorithm_version)))
 
 
 def _code(value: Any) -> str | None:

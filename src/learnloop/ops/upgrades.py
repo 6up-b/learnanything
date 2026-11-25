@@ -43,6 +43,7 @@ from learnloop.algorithm_versions import (
     LESSON_WEIGHT_CURVES_ALGORITHM_VERSION,
     LESSON_WEIGHT_FACTS_ALGORITHM_VERSION,
     OUTCOME_FIXES_ALGORITHM_VERSION,
+    PROBE_ROUTER_FIXES_ALGORITHM_VERSION,
     LIFECYCLE_INPUTS_ALGORITHM_VERSION,
     MASTERY_SEED_ALGORITHM_VERSION,
     PAD_TEXT_ALGORITHM_VERSION,
@@ -304,6 +305,10 @@ UPGRADES: tuple[Link, ...] = (
     # An answer mastery did not apply resolves no lesson check: the rebuild refits the lesson weight on the outcomes
     # that remain (no stored row is rewritten by hand).
     Link(OUTCOME_FIXES_ALGORITHM_VERSION, whole_vault_rebuild),
+    # The probe router's fix round 3: only decisions made after the upgrade behave differently (a forced head's
+    # propensity, a learned draw's, the probe ranking, the prior an episode administers); no recorded decision,
+    # episode or observation is reinterpreted, and replay runs no decision policy.
+    Link(PROBE_ROUTER_FIXES_ALGORITHM_VERSION, idempotent_projection),
 )
 
 

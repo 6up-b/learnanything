@@ -26,6 +26,7 @@ from typing import Any
 
 import pytest
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.config.schema import LearnLoopConfig
 from learnloop.daily_plan import objective_chooser as OC
@@ -306,7 +307,8 @@ def _inputs(**overrides):
                   wait_ref=CONTINUE_CURRENT, per_option=True, llm_status=ANSWERED,
                   llm_options={INSERT_NOW: 0.2, CONTINUE_CURRENT: 0.3, NO_INTERVENTION: 0.5},
                   llm_option_rationale="Words.", llm_p_yes=None, llm_rationale=None, numeric_status=ANSWERED,
-                  numeric_choice=NO_INTERVENTION, w=0.5, to_other_policy=True, epsilon=0.02, seed="literal-seed")
+                  numeric_choice=NO_INTERVENTION, w=0.5, to_other_policy=True, epsilon=0.02, seed="literal-seed",
+                  algorithm_version=LATEST_ALGORITHM_VERSION)
     return C.PostMissInputs(**{**values, **overrides})
 
 

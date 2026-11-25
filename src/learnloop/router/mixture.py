@@ -166,6 +166,22 @@ class Draw:
     def deterministic(self) -> bool:
         return self.propensity >= 1.0 - DETERMINISTIC_TOLERANCE
 
+    @property
+    def sole_option(self) -> bool:
+        """No other option of the support has mass: the draw could not have served anything else."""
+
+        return all(mass <= 0.0 for ref, mass in self.pi.items() if ref != self.chosen)
+
+    def logged_propensity(self, exact: bool) -> float:
+        """The served option's logged probability. ``exact`` (mvp-0.77, ``probe_router_fixes_on``): 1 only when no
+        other option has mass, else its exact ``pi``, however close to 1 (an exploration floor of 5e-13 leaves the
+        other options mass the 1e-12 tolerance would round away, G2-R34). Below it mvp-0.76's: 1 within
+        :data:`DETERMINISTIC_TOLERANCE` of 1."""
+
+        if exact:
+            return 1.0 if self.sole_option else self.propensity
+        return 1.0 if self.deterministic else self.propensity
+
 
 def _pick(order: Sequence[str], distribution: Mapping[str, float], u: float) -> str:
     cumulative = 0.0

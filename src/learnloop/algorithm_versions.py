@@ -1083,6 +1083,12 @@ LESSON_WEIGHT_FACTS_ALGORITHM_VERSION = "mvp-0.75"
 # unassessed) resolves no lesson check in any outcome reader (docs/reviews/algorithm-mvp-0.76.md).
 # One constant: renumbering the tag is this line.
 OUTCOME_FIXES_ALGORITHM_VERSION = "mvp-0.76"
+# The probe router's fix round 3 (docs/reviews/algorithm-mvp-0.77.md): a logged propensity is exactly the served
+# distribution (a head a standing pin forces is composed where every probability is, and a learned draw logs 1 only
+# when no other option has mass); the probe instrument ranks on expected information over the observed posterior, with
+# no family multiplier; an episode administers the prior its offer valued. One constant: renumbering the tag is this
+# line.
+PROBE_ROUTER_FIXES_ALGORITHM_VERSION = "mvp-0.77"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
@@ -1158,6 +1164,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     SELECTED_FORECAST_ALGORITHM_VERSION,
     LESSON_WEIGHT_FACTS_ALGORITHM_VERSION,
     OUTCOME_FIXES_ALGORITHM_VERSION,
+    PROBE_ROUTER_FIXES_ALGORITHM_VERSION,
 )
 
 
@@ -1416,6 +1423,19 @@ def cutoff_reads_the_view(algorithm_version: str | None) -> bool:
     grade's recorded time on a separate read, mvp-0.71's exactly. Takes the vault's tag."""
 
     return algorithm_version in OUTCOME_FIXES_VERSIONS
+
+
+PROBE_ROUTER_FIXES_VERSIONS = successors_from(PROBE_ROUTER_FIXES_ALGORITHM_VERSION)
+
+
+def probe_router_fixes_on(algorithm_version: str | None) -> bool:
+    """The probe router's fix round 3 (mvp-0.77): a head a standing router pin forces is promoted inside the one
+    composition live service and every probability calculation share, and a head mismatch refuses the offer; a draw
+    logs 1 only when no other option has mass; probe instruments rank on expected information over the observed
+    posterior (no family multiplier); entry and retarget bind the episode to the valued lock. Below it mvp-0.76's
+    exactly. Takes the vault's tag."""
+
+    return algorithm_version in PROBE_ROUTER_FIXES_VERSIONS
 
 
 def mastery_facts_recorded(algorithm_version: str | None) -> bool:

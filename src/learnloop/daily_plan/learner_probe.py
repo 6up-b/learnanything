@@ -366,7 +366,7 @@ def draw(vault: Any, repository: Any, *, key: str, unit: str, valuation: Any, no
             support=(other_ref, probe_ref), staged_ref=other_ref, wait_ref=other_ref, per_option=True,
             llm_status=LLM_NOT_ASKED, llm_options=None, llm_option_rationale=None, llm_p_yes=None, llm_rationale=None,
             numeric_status=C.ANSWERED, numeric_choice=numeric, w=w, to_other_policy=to_other, epsilon=epsilon,
-            seed=seed))
+            seed=seed, algorithm_version=config.algorithms.algorithm_version))
         served, propensity, served_pi = choice.drawn.chosen, choice.propensity, dict(choice.drawn.pi)
         fields["mixture"] = {"design": mix.DESIGN, "policy": mix.POLICY, "seed": seed, "boundary_key": key,
                              "support": [other_ref, probe_ref], "staged_ref": other_ref, "epsilon": epsilon,

@@ -1259,7 +1259,7 @@ class ObjectiveRestraintGate(RestraintGate):
             llm_option_rationale=parsed.rationale if parsed is not None else None,
             llm_p_yes=llm.p_yes, llm_rationale=llm.rationale, numeric_status=numeric.status,
             numeric_choice=numeric.choice, w=w, to_other_policy=to_other, epsilon=float(settings["epsilon_min"]),
-            seed=seed))
+            seed=seed, algorithm_version=config.algorithms.algorithm_version))
         llm_dist, rationale, drawn = choice.llm_distribution, choice.rationale, choice.drawn
         failed, effective, parts = list(choice.failed), choice.effective, choice.components
         card = entry.material["card"]

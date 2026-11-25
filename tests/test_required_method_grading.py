@@ -74,7 +74,7 @@ SUBMITTED = CLOCK.now() - timedelta(hours=1)  # before CLOCK's regrades (see tes
 def test_the_method_explicit_successor_is_the_latest_after_the_route_rules():
     # Regrade contracts (mvp-0.26) followed it and keep it.
     assert VERSION == "mvp-0.25"
-    assert LATEST_ALGORITHM_VERSION == "mvp-0.76"
+    assert LATEST_ALGORITHM_VERSION == "mvp-0.77"
     assert PREDECESSOR == "mvp-0.24"
 
 
