@@ -45,7 +45,9 @@ source_text_assertions = 23
 # 5853: the difficulty label's retirement threads adaptive difficulty's forecast of the answer through the grade (the
 # input, the reads, the evidence, the surprise call and the receipt write; the logic lives in
 # adaptive_difficulty/surprise_forecast.py and grade_forecast.py) and passes the vault's tag to the IRT seam.
-"src/learnloop/attempts/attempts.py" = 5853
+# 5871: the lesson-weight curves (mvp-0.72) read an epoch's recorded curve in replay and keep it beside the label-free
+# seam in the grade's evidence (one field, the read, the branch), the capture itself living in db/stores/grade_curves.
+"src/learnloop/attempts/attempts.py" = 5871
 "src/learnloop/db/repositories.py" = 3025
 # 4468: the probe router's continuation (G2 R8): a router-owned episode's one candidate is the item its standing pin
 # names, admitted by that decision whatever its EIG and placed first (the episode reads, the probe gate's admission, the
@@ -73,7 +75,9 @@ source_text_assertions = 23
 # 304816: the difficulty label's retirement regenerates the due queue's fourteen goldens (the label-free priorities),
 # the grade application and diagnosis journey goldens (the surprise rows' source, the grade-time receipts) and the
 # joint grading builder's (ids renumbered around those receipts).
-golden_json_lines = 304816
+# 305132: the lesson-weight curves (mvp-0.72): the diagnosis journey golden records each graded attempt's
+# attempt_grade_curves row (23 rows) and the tag; no other value moved.
+golden_json_lines = 305132
 
 [members]
 import_component = [
