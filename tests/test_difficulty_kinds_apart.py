@@ -306,7 +306,7 @@ AUDITED_READERS = {
     'src/learnloop/delayed_checks.py': (
         'scalar/IRT: item prediction with the EB item-parameter posterior',
         {
-            'predicted_item_success: resolve_item_irt_params(item, learning_object, vault.config.mastery, repository.item_parameter_state(item.id), algorithm_version=vault.config.algorithms.algorithm_version)': 1,
+            'predicted_item_success: resolve_item_irt_params(item, learning_object, vault.config.mastery, None if label_retired(version) else repository.item_parameter_state(item.id), algorithm_version=version)': 1,
         },
     ),
     'src/learnloop/diagnosis/causal_probe_coherence.py': (
