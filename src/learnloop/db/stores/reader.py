@@ -95,6 +95,22 @@ def settle_reviewed_topic_work(connection: sqlite3.Connection, patch_id: str, *,
             )
 
 
+def _completed_sections(connection: sqlite3.Connection, extraction_id: str, section_ids: Sequence[str]) -> set[str]:
+    """The sections among ``section_ids`` whose progress row already holds a completion. A completion never clears,
+    so a writer that read one here can leave it out of its upsert whatever commits in between (R4-F4)."""
+
+    wanted = list(dict.fromkeys(section_ids))
+    if not wanted:
+        return set()
+    placeholders = ", ".join("?" for _ in wanted)
+    rows = connection.execute(
+        "SELECT section_id FROM reader_section_progress "
+        f"WHERE extraction_id = ? AND section_id IN ({placeholders}) AND completed_at IS NOT NULL",
+        (extraction_id, *wanted),
+    ).fetchall()
+    return {str(row[0]) for row in rows}
+
+
 class ReaderStoreMixin:
 
     def insert_source_exposure_event(
@@ -1210,6 +1226,9 @@ class ReaderStoreMixin:
                         "VALUES (?, ?, ?, ?, ?) ON CONFLICT(extraction_id, section_id) DO NOTHING",
                         (extraction_id, section_id, end_span_id, now, observed_by),
                     )
+            # A completion the row already holds is not sent again (R4-F4): it would be kept anyway, and the writer
+            # fence's insert trigger (migration 276) fires before the conflict turns the insert into an update.
+            stamps = completed and section_id not in _completed_sections(connection, extraction_id, [section_id])
             connection.execute(
                 """
                 INSERT INTO reader_section_progress(
@@ -1237,10 +1256,10 @@ class ReaderStoreMixin:
                     int(spans_seen or 0),
                     int(span_count or 0),
                     now if revealed else None,
-                    now if completed else None,
+                    now if stamps else None,
                     now,
-                    completion_cause if completed else None,
-                    completion_version if completed else None,
+                    completion_cause if stamps else None,
+                    completion_version if stamps else None,
                 ),
             )
             connection.commit()
@@ -1317,19 +1336,23 @@ class ReaderStoreMixin:
         stamp keeps a section from building its questions twice."""
 
         now = utc_now_iso(clock)
-        values = [
-            (
-                extraction_id, str(row["section_id"]), int(row.get("spans_seen") or 0),
-                int(row.get("span_count") or 0), row.get("revealed_at"), row.get("completed_at"),
-                row.get("generation_batch_id"), now,
-                row.get("completion_cause") if row.get("completed_at") else None,
-                row.get("completion_algorithm_version") if row.get("completed_at") else None,
-            )
-            for row in rows
-        ]
-        if not values:
+        rows = list(rows)
+        if not rows:
             return 0
         with self.connection() as connection:
+            # As in upsert_reader_section_progress (R4-F4): a completion the row already holds is not sent again.
+            complete = _completed_sections(connection, extraction_id, [str(row["section_id"]) for row in rows])
+            values = []
+            for row in rows:
+                section_id = str(row["section_id"])
+                completed_at = None if section_id in complete else row.get("completed_at")
+                values.append((
+                    extraction_id, section_id, int(row.get("spans_seen") or 0),
+                    int(row.get("span_count") or 0), row.get("revealed_at"), completed_at,
+                    row.get("generation_batch_id"), now,
+                    row.get("completion_cause") if completed_at else None,
+                    row.get("completion_algorithm_version") if completed_at else None,
+                ))
             connection.executemany(
                 """
                 INSERT INTO reader_section_progress(

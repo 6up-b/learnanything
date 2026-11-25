@@ -335,3 +335,71 @@ def test_the_upgrade_command_takes_a_content_only_vault_to_the_head(tmp_path):
     assert done.exit_code == 0, done.output
     assert f"{OWNER_TAG} -> {LATEST_ALGORITHM_VERSION}" in done.output
     assert recorded(paths) == LATEST_ALGORITHM_VERSION
+
+
+# -- R4-F4: repeating a stored completion is no fenced write -----------------------------------------------------------
+
+_PROGRESS = ("extraction_id, section_id, spans_seen, span_count, revealed_at, completed_at, updated_at, "
+             "completion_cause, completion_algorithm_version")
+
+
+def _stale_reader_over_a_completed_section(tmp_path):
+    """A section completed under the predecessor, then an upgrade elsewhere; returns the paths and a repository still
+    bound to the predecessor (a Reader open across the upgrade)."""
+
+    paths = fenced_at_predecessor(tmp_path)
+    with writer_fence.writing_under(paths.sqlite_path):  # an unbound seeding writer
+        with closing(connect(paths.sqlite_path)) as setup:
+            setup.execute("PRAGMA foreign_keys = OFF")
+            setup.execute(f"INSERT INTO reader_section_progress({_PROGRESS}) VALUES "
+                          "('ex', 'done', 3, 4, NULL, '2026-01-01T00:00:00Z', 't', 'reached_end', ?), "
+                          "('ex', 'open', 1, 4, NULL, NULL, 't', NULL, NULL)", (PREDECESSOR,))
+            setup.commit()
+    upgrade_elsewhere(paths)
+    with writer_fence.writing_under(paths.sqlite_path, PREDECESSOR):
+        stale = Repository(paths.sqlite_path)
+    return paths, stale
+
+
+def _progress(paths, section_id):
+    with closing(sqlite3.connect(f"file:{paths.sqlite_path}?mode=ro", uri=True)) as connection:
+        connection.row_factory = sqlite3.Row
+        return dict(connection.execute(
+            "SELECT * FROM reader_section_progress WHERE extraction_id = 'ex' AND section_id = ?", (section_id,)
+        ).fetchone())
+
+
+def test_a_stale_report_repeating_a_stored_completion_records_its_progress(tmp_path):
+    """Migration 276 fences a section's first completion. An upsert's ``BEFORE INSERT`` trigger fires before the
+    conflict turns it into an update, so a report that only repeated a stored completion was refused although the
+    store keeps the original. The store now sends no completion for a section already complete: the report's
+    progress records, the original completion stays, and a first completion is still refused."""
+
+    paths, stale = _stale_reader_over_a_completed_section(tmp_path)
+    before = _progress(paths, "done")
+    row = stale.upsert_reader_section_progress(
+        extraction_id="ex", section_id="done", spans_seen=4, span_count=4, completed=True,
+        completion_cause="reached_end", completion_version=PREDECESSOR)
+    assert row["spans_seen"] == 4
+    after = _progress(paths, "done")
+    assert {key: after[key] for key in ("completed_at", "completion_cause", "completion_algorithm_version")} == {
+        key: before[key] for key in ("completed_at", "completion_cause", "completion_algorithm_version")}
+    with pytest.raises(writer_fence.WriterFenceRefusal):
+        stale.upsert_reader_section_progress(
+            extraction_id="ex", section_id="open", spans_seen=4, span_count=4, completed=True,
+            completion_cause="reached_end", completion_version=PREDECESSOR)
+    assert _progress(paths, "open")["completed_at"] is None
+
+
+def test_a_stale_carry_over_repeating_a_stored_completion_records_its_progress(tmp_path):
+    paths, stale = _stale_reader_over_a_completed_section(tmp_path)
+    before = _progress(paths, "done")
+    assert stale.carry_reader_section_progress("ex", [{
+        "section_id": "done", "spans_seen": 4, "span_count": 4, "completed_at": "2026-02-01T00:00:00Z",
+        "completion_cause": "reached_end", "completion_algorithm_version": PREDECESSOR}]) == 1
+    after = _progress(paths, "done")
+    assert after["spans_seen"] == 4 and after["completed_at"] == before["completed_at"]
+    with pytest.raises(writer_fence.WriterFenceRefusal):
+        stale.carry_reader_section_progress("ex", [{
+            "section_id": "open", "spans_seen": 4, "span_count": 4, "completed_at": "2026-02-01T00:00:00Z",
+            "completion_cause": "reached_end", "completion_algorithm_version": PREDECESSOR}])

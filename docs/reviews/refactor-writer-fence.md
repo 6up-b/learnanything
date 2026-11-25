@@ -324,3 +324,13 @@ two new fence defects. No migration and no tag: nothing stored changes meaning. 
   walks a vault with a database and graded history from mvp-0.61 to the head end to end. Every link activates, both
   tags reach the head, and the history stays. The floor tests already walked from mvp-0.58; this one starts where
   the owner's vaults are.
+
+**R4-F4: repeating a stored completion was refused (WF-R8's residue).**
+
+- **The failure.** An upsert's `BEFORE INSERT` trigger fires before the conflict turns the insert into an update.
+  So migration 276's insert trigger refused a stale report that only repeated a section's stored completion. The
+  store would have kept the original completion anyway. The report's progress was lost, and the host answered
+  `vault_upgraded_while_open`. The reread carry-over had the same shape.
+- **The fix is in the store.** The landed migration is not amended. Both writers read which sections already hold a
+  completion and send no completion for them. A completion never clears, so a completion committed between the read
+  and the write is kept either way. A first completion by a stale writer is still refused.
