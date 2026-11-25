@@ -121,3 +121,30 @@ decisions and live receipts only, so the rebuild digests do not move for them.
 
 Run `learnloop rebuild-derived-state --vault "$COPY" --json` twice; the payload, mastery and trace digests must match
 after each run.
+
+## The owner-copy run (Nov 25 2026, orchestrator; counts and digests only)
+
+Backup-API copies of the three floor-set vaults walked to `mvp-0.75` with this tip, then a second copy to
+`mvp-0.76`. The copies were deleted afterwards.
+
+| | vault 1 | vault 2 | vault 3 |
+|---|---|---|---|
+| mastery changed; surprise changed; direction changed; due items moved | 0 of 34; 0 of 3; 0; 0 | 0 of 21; 0 of 70; 0; 0 | 0 of 18; 0 of 3; 0; 0 |
+| queue Spearman, top-10 overlap | 1.0, 10 | 1.0, 10 | 1.0, 10 |
+| surprise by source after | mastery 3 | mastery 70 | mastery 3 |
+| curves, forecast receipts and grading evidence digests, 0.75 against 0.76 | same | same | same |
+| answers with an unapplied facts block | 1 | 1 | 0 |
+| `answers:grade_record_missing` from the doctor | 0 | 0 | 0 |
+| grading evidence rows of tier 0 (points given with the grade) | 0 | 0 | 0 |
+| payload, mastery and surprise digests after rebuild 1 and 2 | same as after the upgrade | same | same |
+| integrity; foreign-key violations; schema head; fence rows | ok; 0; 276; 1 | ok; 0; 276; 1 | ok; 0; 276; 1 |
+
+- Between the 0.75 copy and its 0.76 upgrade only `algorithm_version` (and `updated_at` on facet recall rows) differs
+  in `learning_object_mastery`, `facet_recall_state`, `facet_uncertainty` and `attempt_surprise`.
+- The narrower activity backfill loses nothing here: the doctor names no answer as missing its grade record, and no
+  raw grade row is created by the upgrade or by either rebuild.
+- **Not exercised here:** no copy holds a lesson check, a forecast-scored surprise row, an inline check or a regrade
+  after an edit, so none of the tag's changed rules is reached; the two unapplied answers resolve no lesson because
+  there is none. A vault with those gets this procedure again before its live upgrade, and the doctor's
+  `answers:grade_record_missing` count should be read on fresh copies of the live vaults first.
+- The landing gate's owner-vault lane was rerun on this tip after the backfill test's setup fix: 92 passed.
