@@ -16,6 +16,7 @@ from tests.helpers import (
     NOW,
     NOW_ISO,
     create_basic_vault,
+    hand_written_evidenced_mastery,
     seed_due_item,
 )
 
@@ -109,6 +110,8 @@ def test_no_active_goals_means_no_goal_frontier(tmp_path):
     paths = create_basic_vault(vault_root)
     write_yaml(paths.goals_path, {"schema_version": 1, "goals": []})
     repository = seed_due_item(paths)
+    # Without a goal only an evidenced learning object schedules (FR3-23: the seed door gives no evidence).
+    hand_written_evidenced_mastery(repository)
     vault = load_vault(vault_root)
 
     queue = read_due_queue(vault, repository, clock=FrozenClock(NOW))

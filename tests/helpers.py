@@ -12,7 +12,7 @@ from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.db.copies import copy_tree_with_databases
 from learnloop.db.migrate import discover_migrations
-from learnloop.db.repositories import MasteryState, Repository
+from learnloop.db.repositories import Repository
 from learnloop.vault.loader import add_subject, init_vault, load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import write_yaml
@@ -62,12 +62,38 @@ async def begin_session(app, pilot):
     return app.screen
 
 
-def seed_due_item(paths: VaultPaths, *, version: str = ALGORITHM_VERSION) -> Repository:
+def seed_due_item(paths: VaultPaths, *, version: str | None = None) -> Repository:
     """Seed mastery + a past-due Practice Item so the basic vault item schedules.
 
-    ``version`` stamps the mastery row: the basic vault's tag by default; a test
-    pinned to an older vault passes that vault's tag so its seed is the old one."""
+    The mastery row comes through the seed door, as vault sync writes it (``materialize_mastery``: the seed and, at
+    mvp-0.67 and later, its record), never by hand: a rebuild starts from the recorded seed, so a hand-written row
+    would make live and rebuilt mastery differ (FR3-23). ``version`` is the tag the seed is taken at: a test pinned to
+    an older vault passes that vault's tag, and the vault is set to it first."""
+    from learnloop.learner.mastery_seed import materialize_mastery
+
+    if version is not None and version != load_vault(paths.root).config.algorithms.algorithm_version:
+        set_algorithm_version(paths, version)
     repository = Repository(paths.sqlite_path)
+    materialize_mastery(load_vault(paths.root), repository, "lo_svd_definition", NOW_ISO)
+    repository.upsert_practice_item_state(
+        "pi_svd_define_001",
+        difficulty=5.0,
+        stability=2.0,
+        due_at="2026-05-18T12:00:00Z",
+        last_attempt_at="2026-05-16T12:00:00Z",
+        active=True,
+    )
+    return repository
+
+
+def hand_written_evidenced_mastery(repository: Repository, *, version: str = ALGORITHM_VERSION) -> None:
+    """``lo_svd_definition``'s mastery as if one piece of evidence had been applied (evidence count 1), written by
+    hand: a state no door writes (no attempt carries that evidence), which a rebuild does not reproduce (FR3-23). Only
+    for a test that needs an evidenced learning object without an attempt and never rebuilds; :func:`seed_due_item`
+    seeds through the door."""
+
+    from learnloop.db.repositories import MasteryState
+
     repository.upsert_mastery_state(
         MasteryState(
             learning_object_id="lo_svd_definition",
@@ -79,15 +105,6 @@ def seed_due_item(paths: VaultPaths, *, version: str = ALGORITHM_VERSION) -> Rep
             updated_at=NOW_ISO,
         )
     )
-    repository.upsert_practice_item_state(
-        "pi_svd_define_001",
-        difficulty=5.0,
-        stability=2.0,
-        due_at="2026-05-18T12:00:00Z",
-        last_attempt_at="2026-05-16T12:00:00Z",
-        active=True,
-    )
-    return repository
 
 
 def create_basic_vault(root: Path, *, fresh: bool = False) -> VaultPaths:

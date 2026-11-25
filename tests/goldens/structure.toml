@@ -53,7 +53,9 @@ source_text_assertions = 23
 # 5886: review round 3 (class 3, a rebuild derives): replay is told whether it may write an answer's missing grade
 # record (one field, its replay keyword, the check and its warning), and the ordinary grade's failed dual write is
 # logged where it happens, naming the answer and the repair (the rule lives in substrate/compat/activity_backfill.py).
-"src/learnloop/attempts/attempts.py" = 5886
+# 5889: review round 3 (FR3-23, owner decision b): the door records points given without evidence rows as the grade's
+# rows (the import, the call and its comment; the rows are built in attempts/given_points.py).
+"src/learnloop/attempts/attempts.py" = 5889
 "src/learnloop/db/repositories.py" = 3025
 # 4468: the probe router's continuation (G2 R8): a router-owned episode's one candidate is the item its standing pin
 # names, admitted by that decision whatever its EIG and placed first (the episode reads, the probe gate's admission, the

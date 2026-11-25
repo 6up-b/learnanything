@@ -87,3 +87,10 @@ def test_exam_finish_dates_no_answer_ahead_of_now_and_replay_orders_them_as_appl
         sequences = application_sequences(connection)
     key = lambda attempt: (attempt["created_at"], sequences[attempt["id"]])  # noqa: E731
     assert all(key(repository.fetch_practice_attempt(ordinary.attempt_id)) > key(attempt) for attempt in exam)
+    # FR3-23 (owner decision b): a rebuild reproduces the live mastery after the sitting and the ordinary answer. The
+    # exam grades give criterion points without evidence rows, which the door records as the grade's rows, and the
+    # due item's mastery comes from a recorded seed (failed before: evidence count 3 live, 4 rebuilt; observation
+    # weight 0.5 live, 0.0 rebuilt).
+    live = _facts(repository, ordinary.attempt_id)
+    rebuild_all_derived_state(vault, repository)
+    assert _facts(repository, ordinary.attempt_id) == live

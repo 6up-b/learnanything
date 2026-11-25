@@ -14,6 +14,7 @@ from learnloop.attempts.attempts import (
     unverified_attribution_json,
 )
 from learnloop.attempts.grading import resolved_rubric
+from learnloop.attempts.regrade import ALL_GRADER_TIERS
 from learnloop.clock import FrozenClock
 from learnloop.substrate.canonical_projection import (
     UNASSESSED_INTERPRETATION,
@@ -186,8 +187,8 @@ def _held_live(vault, repository):
 
 def _hold_by_regrade(vault, repository, attempt_id, when):
     """The ledger a regrade INTO a hold leaves on an assessed attempt (review
-    F1's supersession): every criterion re-graded unassessed over the machine
-    tiers it replaces, the grader's own 0, and a held blind record. Readers
+    F1's supersession): every criterion re-graded unassessed over every tier
+    it replaces (as ``regrade_attempt`` supersedes), the grader's own 0, and a held blind record. Readers
     that read the ledger see exactly what ``regrade_attempt`` writes; the
     vaults these readers live in run no route check of their own."""
 
@@ -204,7 +205,7 @@ def _hold_by_regrade(vault, repository, attempt_id, when):
     ]
     repository.insert_regrade_evidence(
         attempt_id=attempt_id, new_evidence_rows=rows, superseded_by_evidence_id=rows[0]["id"],
-        supersede_tiers=(1, 3), clock=FrozenClock(when),
+        supersede_tiers=ALL_GRADER_TIERS, clock=FrozenClock(when),
     )
     repository.insert_blind_grade_record(
         attempt_id=attempt_id, agent_run_id=None, grading_prompt_version="blind-test",

@@ -66,8 +66,11 @@ Continued (the second worker of the round):
   and admission is checked in the answer's own write transaction (FR3-3); a retried finish counts the intervention
   slots earlier tries used and resumes an attempt's failed completion work (FR3-13); the lesson check's and lesson
   probe's answer turn commits with its grade (FR3-22). FR3-20 was verified fixed by `74ab78be7e`.
-- FR3-23 (a rebuild after a two-answer sitting): caused by two test inputs no door produces (a hand-written mastery
-  row; criterion points without evidence rows); stopped for an owner decision (ledger).
+- FR3-23 (a rebuild after a two-answer sitting), owner decision (b): a live grade that reaches `apply_attempt` with
+  criterion points and no evidence rows has the given points recorded as its rows (`local_grader_id` `given_points`,
+  `grader_tier` 0, a tier no grader writes), so replay, which reads `grading_evidence`, applies what live applied;
+  the tests' due item seeds through the seed door. No tag: every grader door already wrote its rows, and replay of
+  stored rows is unchanged.
 
 Remaining: FR3-4 (outcomes that are not outcomes), FR3-5 (cutoff guard), FR3-10 (no accidental switch), FR3-11,
 FR3-12, FR3-15 to FR3-18.

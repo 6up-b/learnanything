@@ -246,12 +246,13 @@ def test_the_evsi_report_realizes_no_outcome_from_a_held_attempt(tmp_path):
     assert before["join_status"] == {"realized": 1}
 
     # The probe answer's grade is held for review: nothing validated it, so it
-    # realizes no outcome (the probe observation still holds the grader's).
-    repository.insert_blind_grade_record(
-        attempt_id=attempt_id, agent_run_id=None, grading_prompt_version="blind-test",
-        output_schema_version="BlindGradingProposal", context_hash="ctx",
-        record={"practice_item_id": "pi_svd_define_001", "grading_support": dict(HELD_SUPPORT)},
-    )
+    # realizes no outcome (the probe observation still holds the grader's). The
+    # hold is the ledger a regrade into a hold writes: the answer's grade has
+    # evidence rows (FR3-23: the given points are recorded as rows), so a held
+    # blind record alone no longer reads as nothing assessed.
+    from tests.held_grade_evidence_helpers import _hold_by_regrade
+
+    _hold_by_regrade(loaded, repository, attempt_id, PROBE_CLOCK.now() + timedelta(hours=1))
     forecast = {"site": "probe_selection", "forecast": {"emission_alphabet": []}}
     with repository.connection() as connection:
         assert LR.realized_emission(connection, loaded, forecast, attempt_id) == (None, "grade_held_for_review")

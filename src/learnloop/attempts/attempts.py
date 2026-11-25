@@ -18,6 +18,7 @@ from learnloop.config import LearnLoopConfig
 from learnloop.ai.errors import CodexUnavailable
 from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.attempts.ai_contracts import GRADING_PROMPT_VERSION, GradingProposal
+from learnloop.attempts.given_points import given_points_as_evidence
 from learnloop.attempts.lifecycle_inputs import application_required_facets, recorded_for_replay
 from learnloop.db.attempt_lifecycle_inputs import LifecycleInputs
 from learnloop.db.mastery_seed_inputs import MasterySeedInputs
@@ -2973,6 +2974,8 @@ def apply_attempt(
             # observation and its application-order key are this value, so a clock crossing a second between reads
             # never dates them apart (replay reads the stored created_at).
             clock = FrozenClock((clock or SystemClock()).now())
+            # FR3-23 (owner decision b): points given without evidence rows are recorded as the grade's rows.
+            attempt = given_points_as_evidence(attempt, utc_now_iso(clock))
         if not attempt.replace_existing and attempt_order_for(vault.config).by_sequence:
             # mvp-0.65: the attempt's place among the grades applied in its second, taken under this transaction's
             # write lock before anything is computed. Its id was minted when grading started, so it cannot say

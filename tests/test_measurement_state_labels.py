@@ -39,6 +39,7 @@ from tests.helpers import (
     NOW,
     NOW_ISO,
     create_basic_vault,
+    hand_written_evidenced_mastery,
     seed_due_item,
 )
 
@@ -215,6 +216,9 @@ def _loaded(tmp_path: Path, *, seed: bool = True):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     repository = seed_due_item(paths) if seed else Repository(paths.sqlite_path)
+    if seed:
+        # These cells read an evidenced learning object with no attempt (FR3-23: the seed door gives none).
+        hand_written_evidenced_mastery(repository)
     return load_vault(vault_root), paths, repository
 
 
