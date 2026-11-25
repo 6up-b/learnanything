@@ -12,15 +12,13 @@ from pydantic import ValidationError
 import learnloop_sidecar.handlers  # noqa: F401
 from learnloop import provenance
 from learnloop.db import writer_fence
-from learnloop.vault.repository import config_behind_database, vault_writes
+from learnloop.vault.repository import ConfigBehindDatabase, config_behind_database, vault_writes
 from learnloop.ai import plan_fallback
 from learnloop.ai.execution import record_model_calls
 from learnloop.ai.model_use import ModelUseNotAccepted
 from learnloop.attempts.completion_lock import AttemptCompletionBusy
-from learnloop.activation_journal import InterruptedActivation
 from learnloop.ids import new_ulid
-from learnloop.version_floor import BelowOldestSupported
-from learnloop_sidecar.context import SidecarContext, unservable_error
+from learnloop_sidecar.context import UNSERVABLE, SidecarContext, unservable_error
 from learnloop_sidecar.dto import to_camel
 from learnloop.content.sources.exam_material import SourceSetsUnreadable
 from learnloop_sidecar.errors import SidecarError, json_rpc_error, sidecar_error, waiting_for_ok_error
@@ -68,7 +66,13 @@ def _handle(ctx: SidecarContext, request: Any, *, trace_id: str | None = None) -
     """
 
     with provenance.trace_scope(trace_id):
-        return _handle_request(ctx, request)
+        try:
+            return _handle_request(ctx, request)
+        except writer_fence.WriterFenceRefusal:
+            # The last boundary of every request, on every host that dispatches here (the desktop's stdio loop, the
+            # phone host's workers): a refusal raised while another failure was being answered (a recovery's
+            # reload, an error handler's own record) is answered too, and the host keeps serving (round 4, R4-F1).
+            return _refused_again(request)
 
 
 def _handle_request(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:
@@ -154,7 +158,7 @@ def _handle_request(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:
         log_event("rpc.error", method=method_name, id=request_id, code=refusal.code,
                   duration_ms=_elapsed_ms(started))
         return {"jsonrpc": "2.0", "id": request_id, "error": sidecar_error(refusal)}
-    except (BelowOldestSupported, InterruptedActivation) as exc:
+    except UNSERVABLE as exc:
         # A load refused (initialize, a reload, a settings save's reload): unmapped, it reaches the desktop as an
         # internal error with no message, and the message is what names the command to run.
         refusal = unservable_error(exc)
@@ -288,8 +292,13 @@ def _fenced_write_error(ctx: SidecarContext) -> SidecarError:
 
     reloaded = True
     try:
+        # The load compares the config's tag with the database's before it writes anything (R4-F1).
         ctx.reload(maintenance=False)
-    except Exception:  # noqa: BLE001 - the refusal is the answer; the next request's own load reports what failed
+    except ConfigBehindDatabase as behind:
+        # the config itself disagrees with the database; reloading it again would refuse again.
+        return SidecarError("vault_upgraded_while_open", str(behind), retryable=False)
+    except (Exception, writer_fence.WriterFenceRefusal):  # noqa: BLE001 - the refusal is the answer; the next
+        # request's own load reports what failed
         LOG.warning("reload after a fenced write failed", exc_info=True)
         reloaded = False
     behind = _config_behind(ctx) if reloaded else None
@@ -306,7 +315,7 @@ def _fenced_write_error(ctx: SidecarContext) -> SidecarError:
 def _config_behind(ctx: SidecarContext) -> str | None:
     try:
         return None if ctx.vault is None else config_behind_database(ctx.vault)
-    except Exception:  # noqa: BLE001 - a diagnosis only; the refusal stands
+    except (Exception, writer_fence.WriterFenceRefusal):  # noqa: BLE001 - a diagnosis only; the refusal stands
         LOG.warning("could not compare the config with the database's tag", exc_info=True)
         return None
 
@@ -332,8 +341,26 @@ def _reload_after_a_refusal_elsewhere(ctx: SidecarContext) -> None:
             recorded = writer_fence.recorded_tag(connection)
         if recorded is not None and recorded != vault.config.algorithms.algorithm_version:
             ctx.reload(maintenance=False)
-    except Exception:  # noqa: BLE001 - the request itself meets the fence and reports it
+    except (Exception, writer_fence.WriterFenceRefusal):  # noqa: BLE001 - the request itself meets the fence (or
+        # the refused load) and reports it
         LOG.warning("reload after a refusal elsewhere failed", exc_info=True)
+
+
+def _refused_again(request: Any) -> dict[str, Any] | None:
+    """The answer to a refusal raised while another failure was being answered: nothing was saved, and this process
+    could not recover by itself (it builds a response and logs; it calls nothing that writes)."""
+
+    LOG.warning("the writer fence refused a write while a failure was being answered", exc_info=True)
+    request_id = _request_id(request)
+    if request_id is None:
+        return None
+    refusal = SidecarError(
+        "vault_upgraded_while_open",
+        "LearnLoop was upgraded while this vault was open, so that change was not saved. Restart LearnLoop, then "
+        "try again.",
+        retryable=False,
+    )
+    return {"jsonrpc": "2.0", "id": request_id, "error": sidecar_error(refusal)}
 
 
 def _busy_error(exc: Exception) -> SidecarError | None:

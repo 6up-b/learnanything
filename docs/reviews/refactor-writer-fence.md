@@ -270,3 +270,32 @@ records.
 `a45e3c1b1c`. The outbox test's retryable case failed on the old outbox. The round-one fence tests now expect the
 fence's own exception on this code's connections.
 
+
+## Round 4 (2026-11-25, ledger R4-F1 to R4-F5)
+
+The verification review of round 3 (`a45e3c1b1c..6cea38cad2`) found WF-R1, WF-R2 and WF-R4 only partly closed, and
+two new fence defects. No migration and no tag: nothing stored changes meaning. Tests:
+`tests/test_writer_fence_recovery.py`, and the guards in `tests/test_writer_fence_scopes.py`.
+
+**R4-F1 (blocker): a second refusal during recovery ended the desktop host.**
+
+- **The failure.** A predecessor `learnloop.toml` restored over a successor database, plus a learning object without
+  a mastery row. The first refused write entered recovery. `reload(maintenance=False)` synced the new object, a
+  second fenced write. The recovery's `except Exception` let that refusal through, and `serve()` closed. Restarting
+  against the same files repeated it.
+- **Compare before writing.** A load compares the config's tag with the database's right after the repository opens,
+  before state sync or any recovery writes. `SidecarContext.load` and `load_secondary` both do.
+  - A disagreement raises `ConfigBehindDatabase`, one more unservable state beside below-the-floor and an unfinished
+    upgrade.
+  - It is answered as the existing non-retryable `vault_upgraded_while_open`, with the `learnloop upgrade` command.
+  - Once `learnloop upgrade` sets the config back, the watcher's reload (or a new initialize) serves the vault again.
+- **No host loop ends on a refusal.** Each host's last boundary answers one, including a refusal raised while
+  another failure was being answered.
+  - The sidecar's `_handle`, through which the desktop's stdio loop and the phone host's workers dispatch.
+  - The phone host's jobs and redrives. A reload refused there also gets its unservable words.
+  - The MCP tool call's record. A refused tool call names `learnloop upgrade` when the config is behind.
+  - The CLI's entry point, which prints the refusal's words and exits with status 1.
+- **The guards.** Every handler that takes a refusal without re-raising it calls only what writes nothing: logging,
+  building the answer, handing the refusal on. The AST test follows calls into functions of the handler's own module
+  and a short list of answer builders elsewhere. Anything else must run inside a `try` that itself takes the refusal.
+  A second test requires the hosts' last boundaries.

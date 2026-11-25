@@ -424,7 +424,7 @@ class ToolCalls:
         try:
             self._record(call_id=call_id, tool=tool, origin=origin, arguments=arguments, outcome=outcome,
                          error_code=error_code, started=started, started_at=started_at)
-        except Exception:  # noqa: BLE001 - unrecorded calls return nothing
+        except (Exception, FenceRefusal):  # noqa: BLE001 - unrecorded calls return nothing
             _LOG.exception("tool %s could not be recorded", tool)
             raise ToolError("LearnLoop could not record this request, so it returns nothing. Try again.") from None
         if outcome is None:
@@ -438,7 +438,8 @@ class ToolCalls:
         self.runtime.forget_vault()
         refused = upgraded_while_open(exc)
         assert refused is not None
-        return refused.code, str(refused)
+        # A config that names another tag than the database is refused again on every retry: say what repairs it.
+        return refused.code, self.runtime.config_behind() or str(refused)
 
     def record_rejected(self, name: str, arguments: Any, ctx: Context | None, error: BaseException,
                         tools: frozenset[str]) -> None:

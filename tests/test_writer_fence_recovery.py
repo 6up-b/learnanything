@@ -1,0 +1,195 @@
+"""The writer fence's round 4 (``docs/reviews/refactor-writer-fence.md``, "Round 4"; ledger R4-F1 to R4-F5): a host
+recovers from a refusal without a second one, and no host loop ends on a refusal; a same-vault reload hands new ingest
+claims to the successor; a vault with no database takes the upgrade path; a repeated completion of a Reader section
+is no fenced write.
+
+Fakes only; an upgrade "elsewhere" is ``learnloop upgrade`` in a subprocess, as beside an open desktop."""
+
+from __future__ import annotations
+
+import json
+import sqlite3
+from contextlib import closing
+from dataclasses import replace
+from pathlib import Path
+
+import pytest
+
+from learnloop.db import writer_fence
+from learnloop.db.connection import connect
+from learnloop.vault.paths import VaultPaths
+from learnloop.vault.yaml_io import write_yaml
+from learnloop.vault import repository as vault_repository
+
+from tests.writer_fence_helpers import (
+    PREDECESSOR,
+    TARGET,
+    cli_process,  # noqa: F401 - the fixture
+    count,
+    fenced_at_predecessor,
+    recorded,
+    restore_config,
+    upgrade_elsewhere,
+)
+
+pytestmark = [pytest.mark.fresh_connections, pytest.mark.usefixtures("cli_process")]
+
+
+def _add_learning_object_without_mastery(paths: VaultPaths, lo_id: str = "lo_svd_rank") -> None:
+    """A learning object the database has no mastery row for: the next state sync writes one (a fenced write)."""
+
+    write_yaml(paths.learning_object_path("linear-algebra", lo_id), {
+        "schema_version": 1, "id": lo_id, "title": "SVD and rank", "subjects": ["linear-algebra"],
+        "concept": "singular_value_decomposition", "knowledge_type": "definition", "status": "active",
+        "contradicts": None, "summary": "The rank is the number of nonzero singular values.", "prerequisites": [],
+        "confusables": [], "difficulty_prior": 0.5, "tags": [], "provenance": {"origin": "human", "source_refs": []},
+        "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z",
+    })
+
+
+def _stale_write(ctx, _params):
+    """A fenced write under the context's own vault (the shape of a grade's first write). The fence's trigger runs
+    before the row's own constraints, so a write the fence admits fails on them instead, and that is success here."""
+
+    with closing(connect(Path(ctx.repository.sqlite_path))) as connection:
+        try:
+            connection.execute("INSERT INTO lesson_checks DEFAULT VALUES")
+        except sqlite3.IntegrityError:
+            pass  # admitted by the fence; the empty row breaks the table's own NOT NULL
+    return {"ok": True}
+
+
+# -- R4-F1: recovery compares the tags before any write; no host loop ends on a refusal ------------------------------
+
+
+def test_the_desktop_survives_a_restored_older_config_and_says_to_run_upgrade(tmp_path, monkeypatch):
+    """The review's scenario, through the stdio loop itself: the desktop loaded the predecessor; an upgrade elsewhere
+    moved the database on; ``learnloop.toml`` was restored from an older copy and a learning object without a mastery
+    row was added. The next write is refused; the recovery's reload used to sync the new object (a second fenced
+    write), the refusal escaped the handler and ``serve`` closed. Now the reload compares the config's tag with the
+    database's before it writes anything, the answer says to run ``learnloop upgrade``, and the loop keeps serving:
+    once the config is repaired, the same request succeeds."""
+
+    from learnloop.ops.upgrades import upgrade
+    from learnloop_sidecar.registry import METHOD_REGISTRY
+    from learnloop_sidecar.server import serve
+
+    paths = fenced_at_predecessor(tmp_path)
+    spec = METHOD_REGISTRY["get_queue_revision"]
+    monkeypatch.setitem(METHOD_REGISTRY, "get_queue_revision", replace(spec, handler=_stale_write))
+
+    mastery_rows: list[int] = []
+
+    def lines():
+        yield json.dumps({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                          "params": {"vaultPath": str(paths.root)}}) + "\n"
+        upgrade_elsewhere(paths)
+        restore_config(paths, PREDECESSOR)
+        _add_learning_object_without_mastery(paths)
+        yield json.dumps({"jsonrpc": "2.0", "id": 2, "method": "get_queue_revision", "params": {}}) + "\n"
+        yield json.dumps({"jsonrpc": "2.0", "id": 3, "method": "get_queue_revision", "params": {}}) + "\n"
+        # Nothing was written while the config named the predecessor: no mastery row for the new object.
+        mastery_rows.append(count(paths, "learning_object_mastery"))
+        upgrade(paths.root, to=PREDECESSOR)  # sets the config back to the database's tag
+        yield json.dumps({"jsonrpc": "2.0", "id": 4, "method": "initialize",
+                          "params": {"vaultPath": str(paths.root)}}) + "\n"
+        yield json.dumps({"jsonrpc": "2.0", "id": 5, "method": "get_queue_revision", "params": {}}) + "\n"
+        yield json.dumps({"jsonrpc": "2.0", "id": 6, "method": "rpc.ping", "params": {}}) + "\n"
+
+    class Out:
+        def __init__(self):
+            self.responses = []
+
+        def write(self, text):
+            self.responses.append(json.loads(text))
+
+        def flush(self):
+            pass
+
+    out = Out()
+    serve(lines(), out)  # type: ignore[arg-type]
+    by_id = {response["id"]: response for response in out.responses}
+    assert sorted(by_id) == [1, 2, 3, 4, 5, 6]
+    assert "result" in by_id[1]
+    for refused_id in (2, 3):
+        error = by_id[refused_id]["error"]
+        assert error["data"]["code"] == "vault_upgraded_while_open"
+        assert error["data"]["retryable"] is False
+        assert "learnloop upgrade" in error["message"] and TARGET in error["message"]
+    assert mastery_rows == [1]
+    assert "result" in by_id[4] and by_id[5]["result"] == {"ok": True} and "result" in by_id[6]
+    assert recorded(paths) == TARGET
+
+
+def test_a_load_refuses_a_config_behind_its_database_before_it_writes(tmp_path):
+    """The comparison is the load's own: a context opening such a vault writes nothing and serves nothing."""
+
+    from learnloop_sidecar.context import SidecarContext
+
+    paths = fenced_at_predecessor(tmp_path)
+    upgrade_elsewhere(paths)
+    restore_config(paths, PREDECESSOR)
+    _add_learning_object_without_mastery(paths)
+    context = SidecarContext()
+    try:
+        with pytest.raises(vault_repository.ConfigBehindDatabase):
+            context.load(paths.root)
+    finally:
+        context.close()
+    assert count(paths, "learning_object_mastery") == 1
+
+
+def test_a_refusal_raised_while_answering_another_failure_is_still_answered(tmp_path, monkeypatch):
+    """The last boundary of every request: a refusal raised inside a handler of another failure (here the reload of
+    the refusal's own recovery) is answered, never raised out of the request."""
+
+    from learnloop_sidecar.context import SidecarContext
+    from learnloop_sidecar.registry import METHOD_REGISTRY
+    from learnloop_sidecar.server import _handle
+
+    paths = fenced_at_predecessor(tmp_path)
+    context = SidecarContext()
+    context.load(paths.root)
+    try:
+        def refused_twice(*_args, **_kwargs):
+            raise writer_fence.WriterFenceRefusal(writer_fence.REFUSAL)
+
+        spec = METHOD_REGISTRY["get_queue_revision"]
+        monkeypatch.setitem(METHOD_REGISTRY, "get_queue_revision", replace(spec, handler=refused_twice))
+        monkeypatch.setattr(SidecarContext, "reload", refused_twice)
+        response = _handle(context, {"jsonrpc": "2.0", "id": 7, "method": "get_queue_revision", "params": {}})
+        assert response["error"]["data"]["code"] == "vault_upgraded_while_open"
+        assert response["error"]["data"]["retryable"] is False
+        assert "Restart LearnLoop" in response["error"]["message"]
+
+        # A refusal from a handler of an ordinary failure (here the validation error's figure record).
+        def invalid(*_args, **_kwargs):
+            raise writer_fence.WriterFenceRefusal(writer_fence.REFUSAL)
+
+        monkeypatch.setattr("learnloop.figures.records.write_records", invalid)
+        response = _handle(context, {"jsonrpc": "2.0", "id": 8, "method": "figure.request", "params": []})
+        assert response["error"]["data"]["code"] == "vault_upgraded_while_open"
+    finally:
+        context.close()
+
+
+def test_a_cli_command_stops_on_a_refusal_with_its_words(monkeypatch, capsys):
+    """The CLI's entry point answers a refusal plainly (its words, exit status 1), never with a traceback."""
+
+    import typer
+
+    from learnloop import cli
+
+    @cli.app.command("fence-refusal-probe", hidden=True)
+    def probe() -> None:
+        raise writer_fence.WriterFenceRefusal(writer_fence.REFUSAL)
+
+    try:
+        with pytest.raises(SystemExit) as stopped:
+            cli.app(["fence-refusal-probe"], prog_name="learnloop")
+    finally:
+        cli.app.registered_commands[:] = [
+            command for command in cli.app.registered_commands if command.name != "fence-refusal-probe"]
+    assert stopped.value.code == 1
+    assert writer_fence.REFUSAL in capsys.readouterr().err
+    assert typer  # the app is a Typer application

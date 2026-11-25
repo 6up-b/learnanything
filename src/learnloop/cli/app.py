@@ -5,6 +5,7 @@ from learnloop.ai.plan_fallback import command_grant as plan_fallback_command_gr
 from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 
 from learnloop import provenance
+from learnloop.db import writer_fence
 from learnloop.cli.receipts import command_receipts
 from learnloop.cli.runtime import *  # noqa: F403
 
@@ -22,7 +23,20 @@ def _ready_provider_for_task(*args, **kwargs):
     return _runtime_ready_provider_for_task(*args, **kwargs)
 
 
-app = typer.Typer(no_args_is_help=True, help="LearnLoop local adaptive learning vault.")
+class _LearnLoopApp(typer.Typer):
+    """The CLI's entry point (``learnloop = "learnloop.cli:app"``): a command the writer fence stopped (the vault was
+    upgraded while it ran) ends with the refusal's own words and exit status 1, never with a traceback (round 4,
+    R4-F1). The refusal is a ``BaseException``, so no command's ``except Exception`` takes it first."""
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        try:
+            return super().__call__(*args, **kwargs)
+        except writer_fence.WriterFenceRefusal as refusal:
+            typer.echo(str(refusal), err=True)
+            raise SystemExit(1) from None
+
+
+app = _LearnLoopApp(no_args_is_help=True, help="LearnLoop local adaptive learning vault.")
 
 
 @app.callback()

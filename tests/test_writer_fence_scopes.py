@@ -34,35 +34,15 @@ from tests.writer_fence_helpers import (
     TARGET,
     cli_process,  # noqa: F401 - the fixture
     count,
+    fenced_at_predecessor as _fenced_at_predecessor,
     grade,
     recorded,
     refused,
-    vault_at,
+    restore_config as _restore_config,
+    upgrade_elsewhere as _upgrade_elsewhere,
 )
 
 pytestmark = [pytest.mark.fresh_connections, pytest.mark.usefixtures("cli_process")]
-
-
-def _fenced_at_predecessor(tmp_path, name="vault"):
-    """A vault whose database is fenced at the predecessor: one fence-aware activation behind it."""
-
-    paths = vault_at(tmp_path, BEFORE.predecessor, name)
-    assert upgrade(paths.root, to=PREDECESSOR).upgraded
-    assert recorded(paths) == PREDECESSOR
-    return paths
-
-
-def _upgrade_elsewhere(paths, to=TARGET) -> None:
-    """``learnloop upgrade`` in another process, as beside an open desktop or phone host."""
-
-    done = subprocess.run(
-        [sys.executable, "-c",
-         "import sys; from learnloop.ops.upgrades import upgrade; "
-         "sys.exit(0 if upgrade(sys.argv[1], to=sys.argv[2]).upgraded else 3)", str(paths.root), to],
-        env=dict(os.environ), capture_output=True, text=True, timeout=300,
-    )
-    assert done.returncode == 0, done.stderr
-    assert recorded(paths) == to
 
 
 # -- WF-R1: the binding is the vault's, not the process's newest -----------------------------------------------------
@@ -203,13 +183,6 @@ def test_mcp_drops_its_cached_vault_on_a_refusal(tmp_path):
 
 
 # -- WF-R4: the database's tag never moves backwards; an upgrade starts from it ------------------------------------
-
-
-def _restore_config(paths, tag) -> None:
-    """Only ``learnloop.toml`` restored from an older copy: the database stays where it is."""
-
-    named = upgrades.published_algorithm_version(paths.root / "learnloop.toml")
-    upgrades.rewrite_algorithm_version(paths.root / "learnloop.toml", named, tag, durable=True)
 
 
 def test_an_upgrade_from_a_restored_older_config_never_moves_the_database_back(tmp_path):
@@ -389,3 +362,134 @@ def _enclosing(path: Path, handler: ast.ExceptHandler) -> str:
                 node.end_lineno or node.lineno):
             best = node.name
     return best
+
+
+# -- R4-F1: a refusal raised while one is answered, and the hosts' last boundaries -----------------------------------
+
+_REFUSAL_NAMES = {"BaseException", "<bare>", "WriterFenceRefusal", "FenceRefusal"}
+
+#: What a handler that took a refusal may call without a guard: it logs, builds the answer, or hands the refusal on.
+#: None of these opens a connection, so none can meet a second refusal.
+INERT_CALLS = {
+    "debug", "info", "warning", "error", "exception", "log_event", "add_note",
+    "SidecarError", "RemoteRequestError", "json_rpc_error", "sidecar_error",
+    "dict", "str", "repr", "float", "type", "isinstance", "getattr", "len", "round", "perf_counter", "monotonic",
+    "get", "items", "append", "lower", "startswith",
+    "set_exception", "set_result", "is_refusal",
+}
+
+#: Functions of another module such a handler calls, followed into their bodies like a function of its own module.
+ANSWERS_ELSEWHERE = {
+    "upgraded_while_open_error": "src/learnloop_sidecar/errors.py",
+    "waiting_for_ok_error": "src/learnloop_sidecar/errors.py",
+    "upgraded_while_open": "src/learnloop/remote/errors.py",
+    "forget_vault": "src/learnloop/remote/runtime.py",
+    "config_behind": "src/learnloop/remote/runtime.py",
+}
+
+
+def _functions(tree) -> dict[str, list]:
+    found: dict[str, list] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            found.setdefault(node.name, []).append(node)
+    return found
+
+
+def _unguarded_calls(statements):
+    """The calls in ``statements`` outside every ``try`` that catches a refusal (that try's handlers are searched:
+    a refusal raised in them is not caught by their own try)."""
+
+    stack = list(statements)
+    while stack:
+        node = stack.pop()
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
+            continue
+        if isinstance(node, ast.Try) and any(_caught(handler) & _REFUSAL_NAMES for handler in node.handlers):
+            for handler in node.handlers:
+                stack.extend(handler.body)
+            stack.extend(node.orelse)
+            stack.extend(node.finalbody)
+            continue
+        if isinstance(node, ast.Call):
+            yield node
+        stack.extend(ast.iter_child_nodes(node))
+
+
+def _second_refusals(sources: dict[str, str]) -> list[str]:
+    trees = {path: ast.parse(text) for path, text in sources.items()}
+    functions = {path: _functions(tree) for path, tree in trees.items()}
+    found: list[str] = []
+
+    def follow(path, statements, seen, trail):
+        for call in _unguarded_calls(statements):
+            func = call.func
+            name = func.attr if isinstance(func, ast.Attribute) else func.id if isinstance(func, ast.Name) else None
+            if name in INERT_CALLS:
+                continue
+            home = path if name in functions.get(path, {}) else ANSWERS_ELSEWHERE.get(name)
+            if home is None or name not in functions.get(home, {}):
+                found.append(f"{path}:{call.lineno} {' > '.join(trail)} calls {name}")
+                continue
+            if (home, name) not in seen:
+                seen.add((home, name))
+                for definition in functions[home][name]:
+                    follow(home, definition.body, seen, [*trail, name])
+
+    for path, tree in trees.items():
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Try):
+                continue
+            for handler in node.handlers:
+                if _caught(handler) & _REFUSAL_NAMES and not _reraises(handler):
+                    follow(path, handler.body, set(), [f"the handler at line {handler.lineno}"])
+    return found
+
+
+def _sources() -> dict[str, str]:
+    return {path.as_posix(): path.read_text(encoding="utf-8") for path in sorted(Path("src").rglob("*.py"))}
+
+
+def test_no_handler_that_took_a_refusal_can_meet_a_second_one():
+    """A handler that takes a refusal and does not re-raise it (a boundary, a keep-alive loop, a host's answer) calls
+    only what writes nothing: it logs, builds the answer, hands the refusal on. A function of its own module, or one
+    of :data:`ANSWERS_ELSEWHERE`, is followed into; anything else runs inside a ``try`` that itself takes a refusal.
+    So the answer to a refusal (the desktop's recovery reload among them) can never raise a second one out of the
+    host (R4-F1)."""
+
+    assert not _second_refusals(_sources())
+
+
+def test_the_second_refusal_check_sees_the_recovery_reload_of_round_three():
+    """The check, on the recovery as round 3 left it: its reload ran inside ``except Exception`` only."""
+
+    sources = _sources()
+    server = "src/learnloop_sidecar/server.py"
+    sources[server] = sources[server].replace(
+        "except (Exception, writer_fence.WriterFenceRefusal):  # noqa: BLE001 - the refusal is the answer",
+        "except Exception:  # noqa: BLE001 - the refusal is the answer")
+    assert any("_fenced_write_error calls reload" in line for line in _second_refusals(sources))
+
+
+#: Each host's last boundary, as ``path: functions``: a refusal raised anywhere under it (the handler, the answer to
+#: another failure) is answered there and the host's loop goes on: the sidecar's request (the desktop's stdio loop and
+#: the phone host's workers dispatch through it), the phone host's worker loop and its jobs, the MCP tool call and its
+#: record, and the CLI's entry point.
+HOST_BOUNDARIES = {
+    "src/learnloop_sidecar/server.py": ("_handle",),
+    "src/learnloop_mobile/runtime.py": ("_run", "_run_job", "_run_redrive"),
+    "src/learnloop_mcp/server.py": ("_run",),
+    "src/learnloop/cli/app.py": ("__call__",),
+}
+
+
+def test_every_host_loop_answers_a_refusal_at_its_last_boundary():
+    missing = []
+    for path, names in HOST_BOUNDARIES.items():
+        functions = _functions(ast.parse(Path(path).read_text(encoding="utf-8")))
+        for name in names:
+            handlers = [handler for definition in functions.get(name, ()) for node in ast.walk(definition)
+                        if isinstance(node, ast.Try) for handler in node.handlers]
+            if not any(_caught(handler) & _REFUSAL_NAMES for handler in handlers):
+                missing.append(f"{path}:{name}")
+    assert not missing, missing
