@@ -309,6 +309,8 @@ def _pre_arc_c_shape(dump: dict) -> dict:
     shaped["figures"].update({name: True for name in (
         "predictions_enabled", "region_enabled", "revisions_enabled", "advanced_panels_enabled", "offers_enabled",
         "show_me_enabled", "sketch_enabled", "checked_labels_enabled")})
+    # The probe ranking's family multiplier, retired at mvp-0.77 (G2-R33), at its default.
+    shaped["probe"]["block"]["family_redundancy_penalty"] = 0.6
     return shaped
 
 
