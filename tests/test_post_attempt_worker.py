@@ -239,3 +239,27 @@ def test_a_submission_committed_while_the_worker_projects_is_never_overwritten(t
     stored = _canonical_rows(repository)
     project_canonical_facet_state(vault, repository)
     assert stored == _canonical_rows(repository)
+
+
+def test_a_slot_backing_off_a_busy_database_stops_at_shutdown():
+    """FR3-25: a slot retrying a locked database slept its whole backoff (up to 15.5 s over five retries) whatever
+    shutdown said, so it outlived ``shutdown``'s join and the context that owned it. The backoff waits on the stop: a
+    stop during it abandons the retry (nothing was written; the queued job is reclaimed by the next start)."""
+
+    import sqlite3
+    import threading
+    import time
+
+    from learnloop_sidecar.post_attempt_worker import PostAttemptWorker
+
+    worker = PostAttemptWorker(autostart=False)
+    calls: list[float] = []
+
+    def busy():
+        calls.append(time.monotonic())
+        raise sqlite3.OperationalError("database is locked")
+
+    threading.Timer(0.1, worker._stop.set).start()
+    started = time.monotonic()
+    assert worker._with_busy_retry(busy) is None
+    assert time.monotonic() - started < 1.0 and len(calls) == 1

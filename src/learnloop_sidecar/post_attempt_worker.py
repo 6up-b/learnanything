@@ -287,7 +287,11 @@ class PostAttemptWorker:
                 except sqlite3.OperationalError as exc:
                     if not _is_busy(exc) or attempt == BUSY_RETRIES:
                         raise
-                    time.sleep(BUSY_BACKOFF_SECONDS * (2**attempt))
+                    # The backoff waits on the stop (FR3-25): a shutdown during it abandons the retry, which wrote
+                    # nothing (the job stays queued, or its lease lapses, and the next start reclaims it), instead
+                    # of sleeping past the shutdown's join.
+                    if self._stop.wait(BUSY_BACKOFF_SECONDS * (2**attempt)):
+                        return None
         return None
 
     def _loop(self, kind: str) -> None:

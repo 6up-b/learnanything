@@ -61,15 +61,40 @@ def plan_world(tmp_path, monkeypatch, request):
     install_grader(monkeypatch, CountingGrader())
     device = pair(repository)
     app = create_app(config_for(paths.root))
-    with TestClient(app, base_url=f"https://{HOSTNAME}") as client:
-        yield Phone(client, device), app.state.host, repository, paths
+    try:
+        with TestClient(app, base_url=f"https://{HOSTNAME}") as client:
+            yield Phone(client, device), app.state.host, repository, paths
+    finally:
+        _close_desktops()
+
+
+#: The desktop contexts a journey opened (:func:`_desktop`), closed when its world is (FR3-25).
+_OPEN_DESKTOPS: list[SidecarContext] = []
+#: How long a closing desktop's post-attempt slots may take to finish the work they hold (a test's bound, not a model
+#: parameter: one SQLite busy wait and a job's own transactions, far below it on any machine that runs the suite).
+_DESKTOP_DRAIN_SECONDS = 60.0
 
 
 def _desktop(root: Path) -> SidecarContext:
+    """A desktop on the journey's vault. Loading it resumes the post-attempt work the phone's answers left queued
+    (``resume_post_attempt_jobs``), and its own answers queue more, so its slots may be running when the journey
+    ends: the world closes every desktop and waits for those slots to finish (FR3-25; before, no desktop was closed,
+    and a slot still inside its work outlived the test's thread-guard grace under load)."""
+
     ctx = SidecarContext()
+    _OPEN_DESKTOPS.append(ctx)
     ctx.load(root)
     ctx.grading_provider_override = "manual"
     return ctx
+
+
+def _close_desktops() -> None:
+    while _OPEN_DESKTOPS:
+        ctx = _OPEN_DESKTOPS.pop()
+        ctx.close()
+        # ``close`` joins the slots for its own short grace; the journey waits for what it started.
+        ctx.post_attempt_worker.shutdown(timeout=_DESKTOP_DRAIN_SECONDS)
+        assert not ctx.post_attempt_worker.running, "a desktop's post-attempt slot is still running"
 
 
 def _desktop_without_worker(root: Path) -> SidecarContext:
