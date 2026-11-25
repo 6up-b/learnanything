@@ -334,3 +334,11 @@ two new fence defects. No migration and no tag: nothing stored changes meaning. 
 - **The fix is in the store.** The landed migration is not amended. Both writers read which sections already hold a
   completion and send no completion for them. A completion never clears, so a completion committed between the read
   and the write is kept either way. A first completion by a stale writer is still refused.
+
+**R4-F5: nothing else.** WF-R1, WF-R2 and WF-R4's "Partly" verdicts name exactly the residues above: the ingest
+runner (R4-F2), a second refusal in a host's refusal handler and the restored-config recovery (R4-F1), and the
+content-only vault (R4-F3).
+
+**Still not enforced.** A one-shot background thread (an exam answer's grader, a key-check recovery) that meets a
+refusal still ends with its traceback in the log, as before: its writes rolled back, and the host reloads at its next
+request.
