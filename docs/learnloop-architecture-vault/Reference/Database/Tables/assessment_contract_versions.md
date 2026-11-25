@@ -20,10 +20,10 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/stores/answered_contracts.py"
+  - "src/learnloop/db/stores/answered_revision.py"
   - "src/learnloop/db/stores/attempts.py"
   - "src/learnloop/db/stores/observation_ledger.py"
   - "src/learnloop/db/stores/source_service.py"
-  - "src/learnloop/db/stores/write_provenance.py"
   - "src/learnloop/adaptive_difficulty/surprise_forecast.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/measurement_corrections.py"
@@ -95,6 +95,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/db/stores/answered_contracts.py`
+- `src/learnloop/db/stores/answered_revision.py`
 - `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/db/stores/observation_ledger.py`
 - `src/learnloop/db/stores/source_service.py`

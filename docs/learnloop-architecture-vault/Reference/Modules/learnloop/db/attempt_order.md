@@ -153,6 +153,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_sql_and_python_boundaries_agree_on_every_pair`
 - [tests/test_facet_evidence_timeline.py](../../../../../../tests/test_facet_evidence_timeline.py) — direct import
   - `test_bulk_timelines_read_grading_history_once`
+- [tests/test_one_instant_per_grade.py](../../../../../../tests/test_one_instant_per_grade.py) — direct import
+  - `test_exam_finish_dates_no_answer_ahead_of_now_and_replay_orders_them_as_applied`
 - [tests/test_same_second_order.py](../../../../../../tests/test_same_second_order.py) — direct import
   - `test_a_rolled_back_application_leaves_no_reservation_and_its_retry_takes_the_next`
   - `test_at_the_tag_each_live_attempt_reserves_the_next_sequence_in_application_order`

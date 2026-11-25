@@ -111,6 +111,7 @@ Indexes and uniqueness:
 - `tests/test_followup_reserved_only.py`
 - `tests/test_grade_resolution_pipeline.py`
 - `tests/test_held_grade_evidence.py`
+- `tests/test_one_instant_per_grade.py`
 - `tests/test_post_attempt_pipeline.py`
 - `tests/test_required_method_round3_review.py`
 - `tests/test_exam_calibration.py`

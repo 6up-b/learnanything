@@ -91,7 +91,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/adaptive_difficulty/spend|learnloop.adaptive_difficulty.spend]] — imports `Clock`
 - [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]] — imports `Clock`
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `Clock`, `FrozenClock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `FrozenClock`, `SystemClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]] — imports `Clock`
 - [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/attempts/coldness_receipt|learnloop.attempts.coldness_receipt]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
@@ -584,6 +584,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/exam_protection_review_helpers.py](../../../../../tests/exam_protection_review_helpers.py) — direct import
 - [tests/exam_scope_fixtures.py](../../../../../tests/exam_scope_fixtures.py) — direct import
 - [tests/exam_seeding_helpers.py](../../../../../tests/exam_seeding_helpers.py) — direct import
+- [tests/exam_session_helpers.py](../../../../../tests/exam_session_helpers.py) — direct import
 - [tests/facet_authority_helpers.py](../../../../../tests/facet_authority_helpers.py) — direct import
 - [tests/facet_evidence_timeline_helpers.py](../../../../../tests/facet_evidence_timeline_helpers.py) — direct import
 - [tests/facet_identity_actions_helpers.py](../../../../../tests/facet_identity_actions_helpers.py) — direct import
@@ -717,6 +718,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_another_sessions_presentation_binds_only_once_that_session_has_ended`
 - [tests/test_answer_signal_arms.py](../../../../../tests/test_answer_signal_arms.py) — direct import
   - `test_the_loader_reads_the_tap_and_the_graders_tone_reading`
+- [tests/test_answered_revision_protection.py](../../../../../tests/test_answered_revision_protection.py) — direct import
+  - `test_a_presentation_after_a_grade_froze_its_contract_saves_the_revision_it_showed`
 - [tests/test_anti_double_count.py](../../../../../tests/test_anti_double_count.py) — direct import
   - `test_anti_double_count_claim_seeds_prior_but_earns_no_mass`
   - `test_anti_double_count_projection_signal_earns_zero_certification`
@@ -1599,6 +1602,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_emitting_template_creates_attempt_through_attempt_service`
   - `test_register_rejects_invalid_template`
   - `test_valid_template_registers_and_loads`
+- [tests/test_one_instant_per_grade.py](../../../../../tests/test_one_instant_per_grade.py) — direct import
+  - `test_a_grade_reads_the_clock_once_for_its_instant_and_a_rebuild_reproduces_it`
+  - `test_exam_finish_dates_no_answer_ahead_of_now_and_replay_orders_them_as_applied`
 - [tests/test_open_world_gate.py](../../../../../tests/test_open_world_gate.py) — direct import
 - [tests/test_originals_store.py](../../../../../tests/test_originals_store.py) — direct import
 - [tests/test_owner_capture_1025.py](../../../../../tests/test_owner_capture_1025.py) — direct import

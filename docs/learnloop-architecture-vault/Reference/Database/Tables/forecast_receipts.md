@@ -119,6 +119,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/adaptive_difficulty/data_check.py`
+- `src/learnloop/db/stores/answered_revision.py`
 - `src/learnloop/learner/lesson_weight.py`
 - `src/learnloop/substrate/shadow_rebuild.py`
 - `src/learnloop/teacher/service.py`
@@ -151,11 +152,11 @@ None found by exact static reference scan.
 - `tests/test_ad2_model.py`
 - `tests/test_ad_epoch.py`
 - `tests/test_adaptive_difficulty_ad1.py`
+- `tests/test_answered_revision_protection.py`
 - `tests/test_architecture.py`
 - `tests/test_chatgpt_plan_landing.py`
 - `tests/test_cold_retry_reschedule.py`
 - `tests/test_epp_prediction_snapshots.py`
-- `tests/test_epp_receipt_repairs.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

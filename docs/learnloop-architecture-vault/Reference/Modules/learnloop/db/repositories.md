@@ -948,6 +948,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_desktop_submit_after_a_new_session_binds_the_ended_sessions_presentation`
 - [tests/test_answer_signal_arms.py](../../../../../../tests/test_answer_signal_arms.py) — direct import
   - `test_the_loader_reads_the_tap_and_the_graders_tone_reading`
+- [tests/test_answered_revision_protection.py](../../../../../../tests/test_answered_revision_protection.py) — direct import
+  - `test_a_plan_answer_to_a_held_out_served_revision_writes_no_grade_receipt`
+  - `test_a_presentation_after_a_grade_froze_its_contract_saves_the_revision_it_showed`
 - [tests/test_anti_double_count.py](../../../../../../tests/test_anti_double_count.py) — direct import
 - [tests/test_apply_recovery.py](../../../../../../tests/test_apply_recovery.py) — direct import
   - `test_the_apply_recalibrates_before_it_marks_the_intent_applied`
@@ -1807,6 +1810,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_valid_template_registers_and_loads`
 - [tests/test_one_ai_ok.py](../../../../../../tests/test_one_ai_ok.py) — direct import
   - `test_jobs_wait_for_the_ok_and_saying_it_resumes_each_once`
+- [tests/test_one_instant_per_grade.py](../../../../../../tests/test_one_instant_per_grade.py) — direct import
+  - `test_a_grade_reads_the_clock_once_for_its_instant_and_a_rebuild_reproduces_it`
 - [tests/test_open_world_gate.py](../../../../../../tests/test_open_world_gate.py) — direct import
 - [tests/test_openai_embedding_client.py](../../../../../../tests/test_openai_embedding_client.py) — direct import
   - `test_batched_openrouter_request_mrl_order_and_receipt`

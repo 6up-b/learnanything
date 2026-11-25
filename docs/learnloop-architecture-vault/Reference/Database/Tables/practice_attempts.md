@@ -213,6 +213,7 @@ Database triggers:
 - `src/learnloop/daily_plan/router_retrieval.py`
 - `src/learnloop/daily_plan/router_teach_back.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/answered_revision.py`
 - `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/db/stores/causal.py`
 - `src/learnloop/db/stores/collection.py`

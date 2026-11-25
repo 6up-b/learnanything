@@ -301,6 +301,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mvp017_route_check_replay.py](../../../../../../tests/test_mvp017_route_check_replay.py) — direct import
   - `test_an_mvp017_history_at_the_floor_replays_its_grades_and_then_changes_nothing`
   - `test_the_bounded_replay_corrects_the_copy_in_one_rebuild_and_then_changes_nothing`
+- [tests/test_one_instant_per_grade.py](../../../../../../tests/test_one_instant_per_grade.py) — direct import
+  - `test_a_grade_reads_the_clock_once_for_its_instant_and_a_rebuild_reproduces_it`
 - [tests/test_pfc_unassessed_readers.py](../../../../../../tests/test_pfc_unassessed_readers.py) — direct import
   - `test_a_record_written_before_the_rule_keeps_its_interpretation_until_regraded`
   - `test_an_ordinary_item_gives_the_unverified_criterion_s_facet_nothing`

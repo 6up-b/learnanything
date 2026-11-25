@@ -209,6 +209,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_feature_audit_ledgered_with_fallback`
   - `test_serve_inputs_frozen_against_later_audit_and_edit`
   - `test_the_decider_switch_off_audits_with_the_llm_only`
+- [tests/test_answered_revision_protection.py](../../../../../../tests/test_answered_revision_protection.py) — direct import
 - [tests/test_epp_prediction_snapshots.py](../../../../../../tests/test_epp_prediction_snapshots.py) — direct import
   - `test_a_protected_revision_withholds_the_receipts_whose_snapshot_names_it`
   - `test_threshold_and_in_process_receipts_state_their_cutoff_target_and_provenance`

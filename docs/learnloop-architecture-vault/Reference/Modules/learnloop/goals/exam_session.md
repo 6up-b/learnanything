@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/goals/exam_session.py](../../../../../../src/learnloop/goals/exam_session.py) |
-| Source lines | 919 |
+| Source lines | 922 |
 | Owning package | [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -62,15 +62,15 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `queue_exam_answer(vault: LoadedVault, repository: Repository, session_id: str, practice_item_id: str, *, answer_md: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 328) — Persist a final learner answer before its grade exists.
 - `record_exam_answer(vault: LoadedVault, repository: Repository, session_id: str, practice_item_id: str, *, answer_md: str, resolved_grade: ResolvedGrade, grader_identity: tuple[str, str] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 393) — Store one graded answer on the session (no mastery writes yet).
 - `finish_exam(vault: LoadedVault, repository: Repository, session_id: str, *, followup_surface: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 521) — Apply every answered item as an ``exam_attempt`` and persist the report.
-- `exam_report(vault: LoadedVault, repository: Repository, session_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 720) — Return the persisted report (completed), the persisted closure report (a sitting closed because every item was set aside), or a live progress view.
-- `exam_availability(vault: LoadedVault, repository: Repository, goal: Goal, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 753) — Policy data for whether a goal's exam is "due" — not enforced.
+- `exam_report(vault: LoadedVault, repository: Repository, session_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 723) — Return the persisted report (completed), the persisted closure report (a sitting closed because every item was set aside), or a live progress view.
+- `exam_availability(vault: LoadedVault, repository: Repository, goal: Goal, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 756) — Policy data for whether a goal's exam is "due" — not enforced.
 
 ### Module constants
 
 - `_WINDOW_DAYS` ([src/learnloop/goals/exam_session.py](../../../../../../src/learnloop/goals/exam_session.py), line 56)
 - `WITHDRAWN_ITEM_REFUSAL` ([src/learnloop/goals/exam_session.py](../../../../../../src/learnloop/goals/exam_session.py), line 64)
 - `SITTING_CLOSED` ([src/learnloop/goals/exam_session.py](../../../../../../src/learnloop/goals/exam_session.py), line 69)
-- `_ATTRIBUTION_FIELD_NAMES` ([src/learnloop/goals/exam_session.py](../../../../../../src/learnloop/goals/exam_session.py), line 860)
+- `_ATTRIBUTION_FIELD_NAMES` ([src/learnloop/goals/exam_session.py](../../../../../../src/learnloop/goals/exam_session.py), line 863)
 
 ## Internal implementation anchors
 
@@ -80,12 +80,12 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_predicted_correctness_for_item(vault: LoadedVault, repository: Repository, item) -> float` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 177)
 - `_facet_projection_snapshot(vault, item, projection_by_key, scope, target_recall) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 195)
 - `_dual_write_exam_grade(vault: LoadedVault, repository: Repository, *, item: Any, rubric: Any, max_points: int, answer_md: str, resolved_grade: ResolvedGrade, attempt_id: str, grader_identity: tuple[str, str] | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 467) — P0.2 dual-write for exam answers (§4.1, §7.2).
-- `_compute_report(vault: LoadedVault, repository: Repository, session, goal, *, withdrawn: Sequence[dict[str, Any]]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 638)
-- `_session_view(repository: Repository, session_id: str, *, already_started: bool, withdrawn: Sequence[dict[str, Any]]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 798) — The sitting as served: ``item_order`` is the frozen order less the items set aside since (``session_withdrawn_items``); the stored order and every frozen prediction are unchanged.
-- `_grade_to_dict(grade: ResolvedGrade) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 824) — Serialize a resolved grade LOSSLESSLY into ``exam_answers.grade_json``.
-- `_attribution_from_dict(payload: dict[str, Any]) -> GradeAttribution` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 865) — Rebuild one attribution, tolerating legacy six-field rows.
-- `_stored_grader_identity(payload: dict[str, Any]) -> tuple[str, str] | None` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 888) — The calibration identity stored with an exam grade (None: the joint grader's).
-- `_grade_from_dict(payload: dict[str, Any]) -> ResolvedGrade` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 897)
+- `_compute_report(vault: LoadedVault, repository: Repository, session, goal, *, withdrawn: Sequence[dict[str, Any]]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 641)
+- `_session_view(repository: Repository, session_id: str, *, already_started: bool, withdrawn: Sequence[dict[str, Any]]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 801) — The sitting as served: ``item_order`` is the frozen order less the items set aside since (``session_withdrawn_items``); the stored order and every frozen prediction are unchanged.
+- `_grade_to_dict(grade: ResolvedGrade) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 827) — Serialize a resolved grade LOSSLESSLY into ``exam_answers.grade_json``.
+- `_attribution_from_dict(payload: dict[str, Any]) -> GradeAttribution` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 868) — Rebuild one attribution, tolerating legacy six-field rows.
+- `_stored_grader_identity(payload: dict[str, Any]) -> tuple[str, str] | None` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 891) — The calibration identity stored with an exam grade (None: the joint grader's).
+- `_grade_from_dict(payload: dict[str, Any]) -> ResolvedGrade` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 900)
 
 ## Who imports or calls it
 
@@ -131,6 +131,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/exam_session_helpers.py](../../../../../../tests/exam_session_helpers.py) — direct import
 - [tests/test_characterization_assessment_exam.py](../../../../../../tests/test_characterization_assessment_exam.py) — direct import
   - `test_finish_releases_pool_and_reservation_is_blocked_only_by_attempt_history`
   - `test_predictions_are_not_refrozen_on_restart`
@@ -166,6 +167,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_exam_answer_dual_writes_assessment_grade`
 - [tests/test_lesson_weight_facts_integration.py](../../../../../../tests/test_lesson_weight_facts_integration.py) — direct import
   - `test_an_exam_finish_retried_under_its_one_attempt_id_observes_at_the_attempts_second`
+- [tests/test_one_instant_per_grade.py](../../../../../../tests/test_one_instant_per_grade.py) — direct import
+  - `test_exam_finish_dates_no_answer_ahead_of_now_and_replay_orders_them_as_applied`
 - [tests/test_post_attempt_pipeline.py](../../../../../../tests/test_post_attempt_pipeline.py) — direct import
   - `test_finish_exam_failure_reaches_needs_metadata_and_hypotheses`
   - `test_finish_exam_passing_answers_do_not_mint_followup_noise`

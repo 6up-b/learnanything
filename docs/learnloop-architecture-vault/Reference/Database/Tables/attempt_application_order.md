@@ -102,6 +102,7 @@ None found by exact static reference scan.
 - `tests/test_attempt_application_order_migration.py`
 - `tests/test_attempt_order.py`
 - `tests/test_lesson_weight_facts_integration.py`
+- `tests/test_one_instant_per_grade.py`
 - `tests/test_same_second_order.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

@@ -167,6 +167,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/exam_protection_review_helpers.py](../../../../../../tests/exam_protection_review_helpers.py) — direct import
 - [tests/exam_scope_fixtures.py](../../../../../../tests/exam_scope_fixtures.py) — direct import
 - [tests/exam_seeding_helpers.py](../../../../../../tests/exam_seeding_helpers.py) — direct import
+- [tests/exam_session_helpers.py](../../../../../../tests/exam_session_helpers.py) — direct import
 - [tests/facet_authority_helpers.py](../../../../../../tests/facet_authority_helpers.py) — direct import
 - [tests/facet_authority_review_helpers.py](../../../../../../tests/facet_authority_review_helpers.py) — direct import
 - [tests/figure_fixtures.py](../../../../../../tests/figure_fixtures.py) — direct import
@@ -258,7 +259,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_identity_review_f3_a_legacy_signal_survives_its_exam_membership_changing`
   - `test_identity_review_f3_an_unchanged_membership_records_nothing`
   - `test_the_scopes_reading_round_trips_through_the_writers`
-- [tests/test_exam_session.py](../../../../../../tests/test_exam_session.py) — direct import
 - [tests/test_exercise_arm.py](../../../../../../tests/test_exercise_arm.py) — direct import
   - `test_an_already_imported_exercise_is_dropped`
 - [tests/test_facet_authority_review.py](../../../../../../tests/test_facet_authority_review.py) — direct import

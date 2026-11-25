@@ -285,6 +285,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/exam_pool_helpers.py](../../../../../../tests/exam_pool_helpers.py) — direct import
 - [tests/exam_protection_review_helpers.py](../../../../../../tests/exam_protection_review_helpers.py) — direct import
 - [tests/exam_seeding_helpers.py](../../../../../../tests/exam_seeding_helpers.py) — direct import
+- [tests/exam_session_helpers.py](../../../../../../tests/exam_session_helpers.py) — direct import
 - [tests/facet_authority_helpers.py](../../../../../../tests/facet_authority_helpers.py) — direct import
 - [tests/facet_identity_actions_helpers.py](../../../../../../tests/facet_identity_actions_helpers.py) — direct import
 - [tests/facet_identity_helpers.py](../../../../../../tests/facet_identity_helpers.py) — direct import
@@ -622,6 +623,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_answer_door_sessions.py](../../../../../../tests/test_answer_door_sessions.py) — direct import
 - [tests/test_answer_signal_arms.py](../../../../../../tests/test_answer_signal_arms.py) — direct import
   - `test_the_loader_reads_the_tap_and_the_graders_tone_reading`
+- [tests/test_answered_revision_protection.py](../../../../../../tests/test_answered_revision_protection.py) — direct import
+  - `test_a_plan_answer_to_a_held_out_served_revision_writes_no_grade_receipt`
+  - `test_a_presentation_after_a_grade_froze_its_contract_saves_the_revision_it_showed`
 - [tests/test_anti_double_count.py](../../../../../../tests/test_anti_double_count.py) — direct import
 - [tests/test_append_split_passes.py](../../../../../../tests/test_append_split_passes.py) — direct import
   - `test_each_pass_is_its_own_paid_request_under_the_appends_limits`
@@ -2325,6 +2329,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_observation_templates.py](../../../../../../tests/test_observation_templates.py) — direct import
   - `test_ambiguous_emitting_binding_lands_pending`
   - `test_emitting_template_creates_attempt_through_attempt_service`
+- [tests/test_one_instant_per_grade.py](../../../../../../tests/test_one_instant_per_grade.py) — direct import
+  - `test_a_grade_reads_the_clock_once_for_its_instant_and_a_rebuild_reproduces_it`
 - [tests/test_open_world_gate.py](../../../../../../tests/test_open_world_gate.py) — direct import
 - [tests/test_output_budget.py](../../../../../../tests/test_output_budget.py) — direct import
   - `test_the_compare_harness_uses_the_policy_budget_and_retries_a_truncation`

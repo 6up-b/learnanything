@@ -265,6 +265,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_update_whose_variance_the_floor_set_is_labelled_not_recomputed`
   - `test_the_recomputation_applies_the_recorded_floor_at_another_mass`
   - `test_with_irt_off_the_recomputed_trajectory_reads_full_and_partial_credit`
+- [tests/test_one_instant_per_grade.py](../../../../../../tests/test_one_instant_per_grade.py) — direct import
 - [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import
   - `test_review_f3_a_visuals_lesson_forecasts_under_its_own_family`
 - [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import

@@ -155,6 +155,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_incumbent_maintenance_and_vault_loads_never_run_inside_an_operation`
 - [tests/test_agent_run_tokens.py](../../../../../../tests/test_agent_run_tokens.py) — direct import
 - [tests/test_answer_door_sessions.py](../../../../../../tests/test_answer_door_sessions.py) — direct import
+- [tests/test_answered_revision_protection.py](../../../../../../tests/test_answered_revision_protection.py) — direct import
+  - `test_a_presentation_after_a_grade_froze_its_contract_saves_the_revision_it_showed`
 - [tests/test_anti_double_count.py](../../../../../../tests/test_anti_double_count.py) — direct import
 - [tests/test_assessment_contracts.py](../../../../../../tests/test_assessment_contracts.py) — direct import
   - `test_mvp07_attempt_stamps_observation_lineage`
@@ -324,6 +326,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_desktop_and_the_host_coexist_with_no_lost_writes`
 - [tests/test_mobile_v3_probes.py](../../../../../../tests/test_mobile_v3_probes.py) — direct import
 - [tests/test_observation_ledger_bulk.py](../../../../../../tests/test_observation_ledger_bulk.py) — direct import
+- [tests/test_one_instant_per_grade.py](../../../../../../tests/test_one_instant_per_grade.py) — direct import
+  - `test_a_grade_reads_the_clock_once_for_its_instant_and_a_rebuild_reproduces_it`
 - [tests/test_p0_projection_cutover.py](../../../../../../tests/test_p0_projection_cutover.py) — direct import
 - [tests/test_placement_fixture_copies.py](../../../../../../tests/test_placement_fixture_copies.py) — direct import
   - `test_placement_ignores_unanswered_opening_episodes_on_fixture_copies`

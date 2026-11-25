@@ -109,6 +109,7 @@ None found by exact static reference scan.
 - `src/learnloop/adaptive_difficulty/data_check.py`
 - `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/adaptive_difficulty/surprise_forecast.py`
+- `src/learnloop/db/stores/answered_revision.py`
 - `src/learnloop/router/outcomes.py`
 
 ### Direct SQL writers
@@ -137,6 +138,7 @@ None found by exact static reference scan.
 - `tests/test_ad2_serving.py`
 - `tests/test_ad_guard.py`
 - `tests/test_adaptive_difficulty_ad1.py`
+- `tests/test_answered_revision_protection.py`
 - `tests/test_architecture.py`
 - `tests/test_epp_prediction_snapshots.py`
 - `tests/test_epp_repeat_receipts.py`

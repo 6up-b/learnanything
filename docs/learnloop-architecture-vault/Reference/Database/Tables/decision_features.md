@@ -20,11 +20,12 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/answered_revision.py"
   - "src/learnloop/db/stores/learner_model.py"
   - "src/learnloop/db/stores/practice_state.py"
-  - "src/learnloop/diagnosis/followups.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
+  - "src/learnloop/diagnosis/followups.py"
   - "src/learnloop/diagnosis/probes.py"
   - "src/learnloop/scheduling/scheduler.py"
 tags:
@@ -99,6 +100,7 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/attempts/attempts.py`
+- `src/learnloop/db/stores/answered_revision.py`
 - `src/learnloop/db/stores/practice_state.py`
 - `src/learnloop/field/outcomes.py`
 

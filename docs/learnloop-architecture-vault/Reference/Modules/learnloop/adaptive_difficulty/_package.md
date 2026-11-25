@@ -102,7 +102,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/adaptive_difficulty/denial_log|learnloop.adaptive_difficulty.denial_log]] | [[Reference/Modules/learnloop/adaptive_difficulty/denial_log#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]] | [[Reference/Modules/learnloop/adaptive_difficulty/dose#^module-purpose|purpose]] | `ACTIVE` | 2 | 7 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/dose_report|learnloop.adaptive_difficulty.dose_report]] | [[Reference/Modules/learnloop/adaptive_difficulty/dose_report#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
-| [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] | [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit#^module-purpose|purpose]] | `ACTIVE` | 12 | 21 |
+| [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] | [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit#^module-purpose|purpose]] | `ACTIVE` | 12 | 22 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/forecasters|learnloop.adaptive_difficulty.forecasters]] | [[Reference/Modules/learnloop/adaptive_difficulty/forecasters#^module-purpose|purpose]] | `ACTIVE` | 7 | 0 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] | [[Reference/Modules/learnloop/adaptive_difficulty/generation#^module-purpose|purpose]] | `ACTIVE` | 5 | 9 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/grade_forecast|learnloop.adaptive_difficulty.grade_forecast]] | [[Reference/Modules/learnloop/adaptive_difficulty/grade_forecast#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
@@ -150,7 +150,7 @@ For system intent, use [[Architecture Overview]].
 
 - [[Reference/Modules/learnloop/_package|learnloop]] — 38 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 32 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 31 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 32 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 28 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 18 static module edges
 - [[Reference/Modules/learnloop/field/_package|learnloop.field]] — 7 static module edges
@@ -202,7 +202,7 @@ flowchart LR
     n_learnloop_field["learnloop.field"]
     center -->|38| n_learnloop
     center -->|32| n_learnloop_ai
-    center -->|31| n_learnloop_db_stores
+    center -->|32| n_learnloop_db_stores
     center -->|28| n_learnloop_db
     n_learnloop_daily_plan -->|21| center
     center -->|18| n_learnloop_scheduling
