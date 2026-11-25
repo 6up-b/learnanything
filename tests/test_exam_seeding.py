@@ -487,3 +487,43 @@ def test_a_retried_import_replays_the_object_it_already_wrote(tmp_path, monkeypa
     rebuild_derived_state(loaded, repository, learning_object_ids=["lo_svd_definition"])
     assert state() == live
     assert live[0].last_evidence_at == "2026-05-19T12:00:00Z"
+
+
+def test_a_retried_import_finds_its_answers_by_their_import_identity_and_replays_their_own_object(tmp_path, monkeypatch):
+    """Review round 4, R4-S10 (FR3-9 / FR3-21's residue): the already-imported answer is found by its durable import
+    identity (the item, the import's attempt type, the exam date), not among the item's newest 1,000 answers, and the
+    retry replays the learning object that answer was written under, not the item's current one. Failed before: with
+    1,000 later answers on the item the import was written again, and an item moved to another object between the
+    refused import and its retry had that other object replayed."""
+
+    from learnloop.goals import exam_seeding
+
+    _vault_root, loaded, repository = _exam_vault(tmp_path)
+    with monkeypatch.context() as patch:
+        patch.setattr(exam_seeding, "rebuild_derived_state",
+                      lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("stopped before the replay")))
+        with pytest.raises(RuntimeError):
+            seed_exam_attempts(loaded, repository, outcomes=_outcomes())
+    with repository.connection() as connection:
+        (template,) = connection.execute("SELECT id FROM practice_attempts WHERE practice_item_id = 'pi_exam_q1'"
+                                         ).fetchone()
+        columns = [row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")]
+        for n in range(1000):
+            chosen = ", ".join(f"'later_{n:04d}'" if c == "id" else "'independent_attempt'" if c == "attempt_type"
+                               else f"'2027-01-01T00:{n // 60:02d}:{n % 60:02d}Z'" if c in ("created_at", "updated_at")
+                               else "NULL" if c in ("submission_id", "plan_presentation_id", "probe_presentation_id")
+                               else c for c in columns)
+            connection.execute(f"INSERT INTO practice_attempts ({', '.join(columns)}) SELECT {chosen} "
+                               "FROM practice_attempts WHERE id = ?", (template,))
+        connection.commit()
+    moved = loaded  # the item moved to another object since the refused import (this run's vault only)
+    moved.learning_objects["lo_moved_since"] = moved.learning_objects["lo_svd_definition"].model_copy(
+        update={"id": "lo_moved_since"})
+    moved.practice_items["pi_exam_q1"] = moved.practice_items["pi_exam_q1"].model_copy(
+        update={"learning_object_id": "lo_moved_since"})
+    replayed: list[list[str]] = []
+    monkeypatch.setattr(exam_seeding, "rebuild_derived_state",
+                        lambda _vault, _repository, *, learning_object_ids, **_k: replayed.append(learning_object_ids))
+    retried = seed_exam_attempts(moved, repository, outcomes=_outcomes())
+    assert retried.seeded_count == 0 and retried.skipped_existing_count == 3  # failed before: q1 written again
+    assert replayed == [["lo_svd_definition"]]  # failed before: the item's current object

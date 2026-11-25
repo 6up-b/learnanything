@@ -136,6 +136,9 @@ The successor of mvp-0.75 for the review-round-3 fixes that change what is deriv
 - R4-S9 (FR3-23's residue): the given-points rows' ids escape their parts, so `(A:B, C)` and `(A, B:C)` differ; an id
   without `:` or `%` is unchanged. Test:
   `tests/test_one_instant_per_grade.py::test_given_points_row_ids_never_collide_across_attempt_and_criterion_ids`.
+- R4-S10 (FR3-9 / FR3-21's residue): a retried exam import finds its imported answer by its import identity (item,
+  type, exam date) and replays the object that answer was written under. Test:
+  `tests/test_exam_seeding.py::test_a_retried_import_finds_its_answers_by_their_import_identity_and_replays_their_own_object`.
 
 ## Pins and goldens
 

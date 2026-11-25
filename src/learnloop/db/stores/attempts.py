@@ -454,6 +454,18 @@ class AttemptStoreMixin:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def attempt_of_type_on_date(self, practice_item_id: str, attempt_type: str, day: str) -> dict[str, Any] | None:
+        """The item's earliest attempt of ``attempt_type`` dated on ``day`` (``YYYY-MM-DD``), or None: an exam
+        import's durable identity, found however many later answers the item has."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM practice_attempts WHERE practice_item_id = ? AND attempt_type = ? "
+                "AND substr(created_at, 1, 10) = ? ORDER BY created_at, id LIMIT 1",
+                (practice_item_id, attempt_type, day),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
     def list_recent_attempts_by_practice_item(
         self,
         practice_item_id: str,

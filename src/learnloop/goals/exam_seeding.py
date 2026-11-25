@@ -289,14 +289,11 @@ def _question_sort_key(question: str) -> tuple[int, float | str, str]:
     return (1, question, question)
 
 
-def _has_exam_attempt_on_date(repository: Repository, practice_item_id: str, exam_date: date) -> bool:
-    prefix = exam_date.isoformat()
-    attempts = repository.list_recent_attempts_by_practice_item(practice_item_id, limit=1000)
-    return any(
-        attempt.get("attempt_type") == EXAM_ATTEMPT_TYPE
-        and str(attempt.get("created_at") or "").startswith(prefix)
-        for attempt in attempts
-    )
+def _imported_exam_attempt(repository: Repository, practice_item_id: str, exam_date: date) -> dict[str, Any] | None:
+    """The answer an earlier import of this exam wrote for the item, found by its durable import identity (the item,
+    the import's attempt type, the exam date), however many answers the item has had since."""
+
+    return repository.attempt_of_type_on_date(practice_item_id, EXAM_ATTEMPT_TYPE, exam_date.isoformat())
 
 
 def seed_exam_attempts(
@@ -335,9 +332,9 @@ def seed_exam_attempts(
     for question in outcomes.outcomes:
         item = exam_items[question]
         rubric = vault.rubric_for_item(item)
-        if (rubric is None or not rubric.criteria) and not _has_exam_attempt_on_date(
+        if (rubric is None or not rubric.criteria) and _imported_exam_attempt(
             repository, item.id, outcomes.exam_date,
-        ):
+        ) is None:
             raise ExamSeedingError(f"{item.id} has no rubric criteria for the imported score")
 
     config = vault.config.exam_seeding
@@ -367,13 +364,16 @@ def seed_exam_attempts(
                 )
             )
             continue
-        if _has_exam_attempt_on_date(repository, item.id, outcomes.exam_date):
+        imported = _imported_exam_attempt(repository, item.id, outcomes.exam_date)
+        if imported is not None:
             skipped += 1
             # The answer already imported is the durable marker of an import that may
             # have stopped before its chronological replay (a crash, a fence refusal), so a retry replays its object
-            # too. The replay is derived and idempotent; one that already ran changes nothing.
-            if not dry_run and item.learning_object_id not in affected_learning_objects:
-                affected_learning_objects.append(item.learning_object_id)
+            # too: the one the answer was written under, which the item may have left since. The replay is derived
+            # and idempotent; one that already ran changes nothing.
+            written_under = str(imported.get("learning_object_id") or item.learning_object_id)
+            if not dry_run and written_under not in affected_learning_objects:
+                affected_learning_objects.append(written_under)
             entries.append(
                 ExamSeedEntry(
                     question=question,
