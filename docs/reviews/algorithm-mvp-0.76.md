@@ -215,3 +215,21 @@ Backup-API copies of the three floor-set vaults walked to `mvp-0.75` with this t
   there is none. A vault with those gets this procedure again before its live upgrade, and the doctor's
   `answers:grade_record_missing` count should be read on fresh copies of the live vaults first.
 - The landing gate's owner-vault lane was rerun on this tip after the backfill test's setup fix: 92 passed.
+
+## The owner-copy run after round 4 (Nov 25 2026, orchestrator; counts only)
+
+The same procedure on fresh backup-API copies of the three floor-set vaults with the round-4 tip (copies deleted
+afterwards), plus the activity backfill's own report on an untouched floor copy.
+
+| | vault 1 | vault 2 | vault 3 |
+|---|---|---|---|
+| first backfill: attempts replayed; skipped as already recorded | 0; 3 | 0; 70 | 0; 3 |
+| first backfill: after the substrate without an observation; before their writer recorded; writer never recorded | 0; 0; 0 | 0; 0; 0 | 0; 0; 0 |
+| 0.75 to 0.76: mastery changed; surprise changed; direction changed; due items moved | 0 of 34; 0 of 3; 0; 0 | 0 of 21; 0 of 70; 0; 0 | 0 of 18; 0 of 3; 0; 0 |
+| `answers:grade_record_missing` from the doctor; tier-0 evidence rows | 0; 0 | 0; 0 | 0; 0 |
+| two rebuilds exit 0; integrity; foreign-key violations; schema head; fence rows | yes; ok; 0; 276; 1 | yes; ok; 0; 276; 1 | yes; ok; 0; 276; 1 |
+
+- Every answer on these copies already has its observation, so the per-writer cutover decides nothing here and no
+  answer is of unknown provenance. The copies date from Nov 12; the live vaults hold more history and get the same
+  counts on fresh copies before their upgrade.
+- This run did not compare table digests across the two rebuilds (the earlier run on this page did).

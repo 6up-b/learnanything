@@ -1193,3 +1193,5 @@ Found while extracting the scoped source and deleting the standalone screen (rec
 | Id | Found in | Bug | Fail-first test | Fix | Status |
 |---|---|---|---|---|---|
 | DOC-1 | Architecture vault audit | `learnloop synthesize --help` and `learnloop synthesize-repair --help` still say `--apply` requires mvp-0.7. The shared opener refuses versions below mvp-0.58, and neither synthesis apply path checks for mvp-0.7. | Inspect the two `--apply` declarations in `src/learnloop/cli/app.py` and compare with the apply paths and `OLDEST_SUPPORTED`. | Update CLI help and its snapshot in a source change. | open |
+
+- **R4-G1 (open, to fix by arc close).** The desktop test run can end with one unhandled rejection after every test passed: `src/screens/reader/figures/useFigures.ts` sets state from a figure request that settles after its test's environment is torn down (seen once in `sideBySideIntent.test.tsx` on the round-4 gate, 4567 of 4567 tests passing; a rerun was clean). The hook's request should be cancelled or ignored on unmount, and the test should wait for the request it starts.
