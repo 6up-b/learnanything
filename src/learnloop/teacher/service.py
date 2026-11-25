@@ -1133,9 +1133,12 @@ def take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, paylo
             # reads and visual: Reader RW5d P4b, Codex review F1): ruling R1. Changed, recovery runs only
             # what makes no model call, and the lesson ends.
             changed = protection_changed(vault, repository, state)
+            # TE5-R9: Close (and Stop) settle an interrupted turn's optional reads, offers and figure without running
+            # them: nothing a retrieval or a resolver can fail on stands between the learner and closing.
+            ending = action in ("close", "stop")
             try:
-                recovered = recover(vault, repository, state, clock=clock, reads=not changed,
-                                    builder=None if changed else clients.figures, resolver=clients.resolver)
+                recovered = recover(vault, repository, state, clock=clock, reads=not (changed or ending),
+                                    builder=None if (changed or ending) else clients.figures, resolver=clients.resolver)
             except Exception as exc:
                 if not _refused_by_budget(state, exc):
                     raise
@@ -1283,7 +1286,7 @@ def _topic_decision(vault: Any, repository: Any, state: LessonState, verb: str, 
         request = CreateGoalLo(action="create_goal_lo", **{k: data[k] for k in ("phrase", "title", "statement", "anchors")})
         checked = resolve_offer(vault, repository, state, request, client=clients.resolver() if clients.resolver else None,
                                 clock=clock)
-        if checked["status"] == "unavailable":
+        if checked["status"] == "unavailable" and checked.get("reason") != "too_large":
             raise LessonError("plan_unavailable", "LearnLoop could not check the current topics. Try again.")
     with repository.atomic():
         current = load_state(repository, state.lesson_id)
@@ -1291,8 +1294,9 @@ def _topic_decision(vault: Any, repository: Any, state: LessonState, verb: str, 
             return view(vault, repository, state.lesson_id)
         if verb == "add" and checked != data:
             _append(repository, current, actor="code", action="topic_refused", refs=refs,
-                    payload={"reason": checked["status"], "message": "The topic resolution changed. Ask the teacher "
-                                                                     "to check the topic again."}, clock=clock)
+                    payload={"reason": checked.get("reason") or checked["status"],
+                             "message": TP.TOO_LARGE_LINE if checked.get("reason") == "too_large" else
+                             "The topic resolution changed. Ask the teacher to check the topic again."}, clock=clock)
             return view(vault, repository, state.lesson_id)
         _append(repository, current, actor="learner", action="topic_declined" if verb == "skip" else "topic_requested",
                 refs=refs, payload={"phrase": data["phrase"]}, clock=clock)

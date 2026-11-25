@@ -201,3 +201,42 @@ def test_continue_after_a_restart_answers_a_saved_reply(tmp_path):
                            clients=clients(fake))
     assert answered["awaiting_teacher"] is False
     assert answered["feed"][-1]["text"] == "Next: the characteristic polynomial."
+
+
+# --- TE5-R9: an oversized catalog never wedges the lesson -----------------------------------------------------------
+
+
+def test_an_oversized_catalog_is_noted_and_close_always_works(tmp_path, monkeypatch):
+    from learnloop.source_retrieval import deliverables as DL
+    from learnloop.teacher import actions as A
+    from tests.deliverable_fixtures import DeliverableFake
+
+    def too_large(*_args, **_kwargs):
+        raise DL.DeliverableError("too_large", "Your vault has more topics than LearnLoop can read in one call.")
+
+    paths, repository = build_teacher_vault(tmp_path / "vault")
+    resolver = DeliverableFake(unmatched=(PHRASE,))
+    fake = TeacherFake([_proposal])
+    providers = clients(fake)
+    providers.resolver = lambda: resolver
+    with monkeypatch.context() as patch:
+        patch.setattr(DL, "_bounded_topics", too_large)
+        opened = S.open_lesson(load_vault(paths.root), repository, entry="learning_object",
+                               learning_object_ids=["lo_eigen"], clients=providers)
+    lesson = opened["lesson_id"]
+    offer, = [row["payload"] for row in S.load_state(repository, lesson).turns if row["action"] == "topic_offer"]
+    assert offer == {"status": "unavailable", "reason": "too_large"} and resolver.calls == 0
+    assert "more topics than LearnLoop can read at once" in json.dumps(opened["feed"])
+    # A turn whose offer fails every time it runs is left unexecuted: Close still closes the lesson.
+    def broken(*_args, **_kwargs):
+        raise RuntimeError("the offer cannot be resolved")
+
+    monkeypatch.setattr(A, "resolve_offer", broken)
+    fake.turns = [_proposal]
+    with pytest.raises(RuntimeError):
+        S.take_turn(load_vault(paths.root), repository, lesson_id=lesson, action="reply", payload={"text": "another?"},
+                    clients=providers)
+    assert S.load_state(repository, lesson).unexecuted is not None
+    closed = S.take_turn(load_vault(paths.root), repository, lesson_id=lesson, action="close", payload={},
+                         clients=providers)
+    assert closed["closed"]

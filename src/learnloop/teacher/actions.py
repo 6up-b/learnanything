@@ -50,7 +50,9 @@ def resolve_offer(vault: Any, repository: Any, state: Any, request: CreateGoalLo
     except TopicsRefused:
         return {"status": "protected"}
     if resolved["status"] not in ("fresh", "ready"):
-        return {"status": "unavailable"}
+        # TE5-R9: a catalog too large for the resolver's bound is a settled answer (it will not fit on a retry), so
+        # the offer is recorded as such and the lesson goes on; an outage stays retryable.
+        return {"status": "unavailable", **({"reason": "too_large"} if resolved.get("reason") == "too_large" else {})}
     phrase = " ".join(request.phrase.split())
     if not any(" ".join(entry["phrase"].split()).casefold() == phrase.casefold() for entry in resolved["unmatched"]):
         return {"status": "matched" if resolved["topics"] and not resolved["unmatched"] else "unresolved",
