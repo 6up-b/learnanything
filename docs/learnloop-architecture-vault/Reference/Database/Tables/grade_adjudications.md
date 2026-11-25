@@ -17,6 +17,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/066_grader_channel.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/grading.py"
@@ -95,6 +96,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/observation_ledger.py`
 

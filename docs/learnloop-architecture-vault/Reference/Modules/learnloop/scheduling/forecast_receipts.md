@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/forecast_receipts.py](../../../../../../src/learnloop/scheduling/forecast_receipts.py) |
-| Source lines | 347 |
+| Source lines | 350 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -59,7 +59,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `inputs_digest(inputs: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 176)
 - `categorical_body(likelihood: Mapping[str, Mapping[str, float]], prior: Mapping[str, float], *, alphabet: Sequence[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 181) — The Part B body of a categorical forecast over ``alphabet``.
 - `clamped_as_of(value: str | None, created_at: str) -> str` ([source](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 215) — ``inputs_as_of`` in the receipt's own format, never after the receipt.
-- `record_receipts(repository: Repository | None, receipts: Sequence[ForecastReceipt], *, vault: Any=None, clock: Clock | None=None, created_at: str | None=None, new_id: Callable[[], str] | None=None) -> list[str]` ([source](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 239) — Append ``receipts`` in the caller's transaction; never raises.
+- `record_receipts(repository: Repository | None, receipts: Sequence[ForecastReceipt], *, vault: Any=None, clock: Clock | None=None, created_at: str | None=None, new_id: Callable[[], str] | None=None, algorithm_version: str | None=None) -> list[str]` ([source](../../../../../../src/learnloop/scheduling/forecast_receipts.py), line 239) — Append ``receipts`` in the caller's transaction; never raises.
 
 ### Module constants
 
@@ -220,6 +220,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_provenance_record_the_diagnosis_and_its_forecasts_commit_as_one_transaction`
 - [tests/test_surprise_reads_ad_forecast.py](../../../../../../tests/test_surprise_reads_ad_forecast.py) — direct import
   - `test_a_grade_receipt_that_fails_to_write_leaves_the_mastery_fallback_and_its_source`
+  - `test_the_diagnosis_receipt_switch_does_not_discard_the_grade_time_forecast`
 - [tests/test_teacher_te2log_node_held.py](../../../../../../tests/test_teacher_te2log_node_held.py) — direct import
   - `test_each_p_held_is_a_lesson_node_held_forecast_on_its_lo`
   - `test_one_refused_node_forecast_leaves_its_siblings`

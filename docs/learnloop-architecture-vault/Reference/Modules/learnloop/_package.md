@@ -84,7 +84,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/__main__|learnloop.__main__]] | [[Reference/Modules/learnloop/__main__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/activation_journal|learnloop.activation_journal]] | [[Reference/Modules/learnloop/activation_journal#^module-purpose|purpose]] | `ACTIVE` | 7 | 6 |
 | [[Reference/Modules/learnloop/adf_numeric|learnloop.adf_numeric]] | [[Reference/Modules/learnloop/adf_numeric#^module-purpose|purpose]] | `ACTIVE` | 7 | 1 |
-| [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] | [[Reference/Modules/learnloop/algorithm_versions#^module-purpose|purpose]] | `ACTIVE` | 54 | 332 |
+| [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] | [[Reference/Modules/learnloop/algorithm_versions#^module-purpose|purpose]] | `ACTIVE` | 56 | 332 |
 | [[Reference/Modules/learnloop/app_launch|learnloop.app_launch]] | [[Reference/Modules/learnloop/app_launch#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/attempt_types|learnloop.attempt_types]] | [[Reference/Modules/learnloop/attempt_types#^module-purpose|purpose]] | `ACTIVE` | 8 | 3 |
 | [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]] | [[Reference/Modules/learnloop/bootstrap#^module-purpose|purpose]] | `ACTIVE` | 3 | 6 |
@@ -206,10 +206,10 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 80 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 73 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 58 static module edges
-- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 49 static module edges
+- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 50 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 42 static module edges
+- [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 39 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 39 static module edges
-- [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 38 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 37 static module edges
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 35 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 34 static module edges
@@ -291,12 +291,12 @@ flowchart LR
     n_learnloop_daily_plan -->|80| center
     center -->|1| n_learnloop_daily_plan
     n_learnloop_sidecar_handlers -->|58| center
-    n_learnloop_attempts -->|49| center
+    n_learnloop_attempts -->|50| center
     center -->|2| n_learnloop_attempts
     n_learnloop_source_retrieval -->|42| center
     n_learnloop_scheduling -->|39| center
     center -->|2| n_learnloop_scheduling
-    n_learnloop_adaptive_difficulty -->|38| center
+    n_learnloop_adaptive_difficulty -->|39| center
     n_learnloop_figures -->|37| center
     n_learnloop_learner -->|32| center
     center -->|3| n_learnloop_learner

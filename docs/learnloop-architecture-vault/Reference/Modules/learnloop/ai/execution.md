@@ -536,6 +536,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_all_eight_turn_variants_check_inside_receipt`
   - `test_two_failed_turns_leave_the_existing_third_slot`
 - [tests/test_teacher_te5_compaction.py](../../../../../../tests/test_teacher_te5_compaction.py) — direct import
+  - `test_a_correction_receipt_records_its_own_prompt_estimate`
   - `test_a_long_current_reply_after_short_nested_sends_is_forecast`
   - `test_compacted_correction_records_one_boundary`
 - [tests/test_tier1_decider.py](../../../../../../tests/test_tier1_decider.py) — direct import

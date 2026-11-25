@@ -249,10 +249,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_wal_stays_bounded_across_twenty_queue_builds_on_a_fixture_copy`
 - [tests/test_surprise_reads_ad_forecast.py](../../../../../../tests/test_surprise_reads_ad_forecast.py) — direct import
   - `test_a_grade_receipt_that_fails_to_write_leaves_the_mastery_fallback_and_its_source`
+  - `test_a_later_regrade_never_enters_an_earlier_forecast`
   - `test_a_rebuild_reproduces_every_surprise_row_and_writes_no_receipt`
   - `test_a_regrade_rereads_the_answers_first_forecast`
   - `test_a_writer_committing_between_the_read_and_the_write_leaves_the_recorded_forecast_standing`
   - `test_an_answer_dated_before_recorded_evidence_gets_no_grade_time_forecast`
+  - `test_the_diagnosis_receipt_switch_does_not_discard_the_grade_time_forecast`
 - [tests/test_teacher_te1_migration.py](../../../../../../tests/test_teacher_te1_migration.py) — direct import
   - `test_234_keeps_every_source_tool_call_row`
 - [tests/test_tracked_fixture_databases.py](../../../../../../tests/test_tracked_fixture_databases.py) — direct import

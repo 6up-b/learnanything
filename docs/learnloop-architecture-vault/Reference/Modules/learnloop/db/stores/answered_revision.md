@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/answered_revision.py](../../../../../../../src/learnloop/db/stores/answered_revision.py) |
-| Source lines | 124 |
+| Source lines | 135 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -56,10 +56,11 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 ## Public API
 
 - `contract_revision(connection: sqlite3.Connection, contract_version_id: Any) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/answered_revision.py), line 32) — The full revision a contract cites (from mvp-0.74), or None.
-- `presentation_revision(connection: sqlite3.Connection, plan_presentation_id: Any) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/answered_revision.py), line 42) — The revision a plan presentation froze when it was served, or None.
-- `selection_revision(connection: sqlite3.Connection, scheduler_candidate_id: Any, answered_at: Any) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/answered_revision.py), line 52) — The revision the scheduler's selection scored for the attempt's candidate, recorded by the answer, or None.
-- `draft_revisions(connection: sqlite3.Connection, *, contract_version_id: Any=None, plan_presentation_id: Any=None, scheduler_candidate_id: Any=None, answered_at: Any=None) -> tuple[str, ...]` ([source](../../../../../../../src/learnloop/db/stores/answered_revision.py), line 64) — The revisions an answer not yet stored names, in precedence order (facts 1-3).
-- `all_answered_revisions(connection: sqlite3.Connection) -> dict[str, tuple[str, ...]]` ([source](../../../../../../../src/learnloop/db/stores/answered_revision.py), line 84) — Every stored attempt's answered revisions (facts 1-4), in precedence order, one pass per fact.
+- `first_grade_contract(connection: sqlite3.Connection, attempt_id: Any) -> tuple[bool, str | None]` ([source](../../../../../../../src/learnloop/db/stores/answered_revision.py), line 42) — Whether the attempt's first grade is stored, and the contract its rows cite (fact 1's contract): the one frozen when the item was presented, never a regrade's or an adjudication's, which cite the contract THEY graded.
+- `presentation_revision(connection: sqlite3.Connection, plan_presentation_id: Any) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/answered_revision.py), line 53) — The revision a plan presentation froze when it was served, or None.
+- `selection_revision(connection: sqlite3.Connection, scheduler_candidate_id: Any, answered_at: Any) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/answered_revision.py), line 63) — The revision the scheduler's selection scored for the attempt's candidate, recorded by the answer, or None.
+- `draft_revisions(connection: sqlite3.Connection, *, contract_version_id: Any=None, plan_presentation_id: Any=None, scheduler_candidate_id: Any=None, answered_at: Any=None) -> tuple[str, ...]` ([source](../../../../../../../src/learnloop/db/stores/answered_revision.py), line 75) — The revisions an answer not yet stored names, in precedence order (facts 1-3).
+- `all_answered_revisions(connection: sqlite3.Connection) -> dict[str, tuple[str, ...]]` ([source](../../../../../../../src/learnloop/db/stores/answered_revision.py), line 95) — Every stored attempt's answered revisions (facts 1-4), in precedence order, one pass per fact.
 
 ### Module constants
 
@@ -72,13 +73,14 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `all_answered_revisions`
 - `contract_revision`
 - `draft_revisions`
+- `first_grade_contract`
 - `presentation_revision`
 - `selection_revision`
 
 ## Internal implementation anchors
 
 - `_table(connection: sqlite3.Connection, name: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/answered_revision.py), line 27)
-- `_receipt_revision(versions_json: Any, practice_item_id: Any, item_content_hash: Any) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/answered_revision.py), line 73)
+- `_receipt_revision(versions_json: Any, practice_item_id: Any, item_content_hash: Any) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/answered_revision.py), line 84)
 
 ## Who imports or calls it
 
@@ -86,6 +88,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `all_answered_revisions`, `draft_revisions`; statically calls `all_answered_revisions`, `draft_revisions`
+- [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]] — imports `first_grade_contract`; statically calls `first_grade_contract`
 
 ## Dependencies
 
@@ -105,7 +108,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]].
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

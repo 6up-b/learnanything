@@ -448,6 +448,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_answer_signal_arms.py](../../../../../../tests/test_answer_signal_arms.py) — direct import
   - `test_the_loader_reads_the_tap_and_the_graders_tone_reading`
 - [tests/test_answered_revision_protection.py](../../../../../../tests/test_answered_revision_protection.py) — direct import
+  - `test_a_later_held_out_grade_does_not_change_an_unrelated_public_answers_forecast`
   - `test_a_plan_answer_to_a_held_out_served_revision_writes_no_grade_receipt`
   - `test_a_presentation_after_a_grade_froze_its_contract_saves_the_revision_it_showed`
 - [tests/test_approach_map_boundaries.py](../../../../../../tests/test_approach_map_boundaries.py) — direct import
@@ -1017,6 +1018,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_seen_stem_records_follow_the_seen_revision_and_scored_rows`
 - [tests/test_surprise_reads_ad_forecast.py](../../../../../../tests/test_surprise_reads_ad_forecast.py) — direct import
   - `test_ads_trace_records_the_kl_of_its_posterior_from_the_tag_on`
+  - `test_the_diagnosis_receipt_switch_does_not_discard_the_grade_time_forecast`
   - `test_the_grade_does_not_wait_on_a_second_clock`
   - `test_the_label_does_not_move_mastery`
 - [tests/test_t6_followup_review.py](../../../../../../tests/test_t6_followup_review.py) — direct import

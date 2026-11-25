@@ -47,23 +47,23 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/surprise.py](../../../../../../src/learnloop/attempts/surprise.py) |
-| Source lines | 223 |
+| Source lines | 229 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class SurpriseResult` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 24)
-  - `as_record(self, attempt_id: str, algorithm_version: str, created_at: str) -> dict[str, object]` (line 34; public)
-- `compute_observation_variance(observation: MasteryObservation, config: LearnLoopConfig) -> float` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 52) — Legacy logit-space observation variance (used when IRT is disabled).
-- `compute_surprise(*, prior: MasteryState, posterior: MasteryState, observation: MasteryObservation, observed_error_type: str | None, prior_active_errors: list[ActiveErrorEvent], config: LearnLoopConfig, item_a: float=1.0, item_b: float=0.0, forecast: Any=None, priming_offset: float=0.0, record_source: bool=False, direct: bool=False) -> SurpriseResult` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 65) — ``forecast`` (a :class:`~learnloop.attempts.surprise_forecast.SurpriseForecast`, from the label's retirement): adaptive difficulty's ``p̄`` made before the answer, which the predictive part is scored against (its innovation, variance and direction around ``b' = μ_prior − logit(p…
-- `predicted_error_type_distribution(prior_active_errors: list[ActiveErrorEvent], *, observed_at: datetime) -> dict[str, float]` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 198)
-- `score_bucket(rubric_score: int, max_points: int=4) -> str` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 217)
+- `class SurpriseResult` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 25)
+  - `as_record(self, attempt_id: str, algorithm_version: str, created_at: str) -> dict[str, object]` (line 35; public)
+- `compute_observation_variance(observation: MasteryObservation, config: LearnLoopConfig) -> float` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 53) — Legacy logit-space observation variance (used when IRT is disabled).
+- `compute_surprise(*, prior: MasteryState, posterior: MasteryState, observation: MasteryObservation, observed_error_type: str | None, prior_active_errors: list[ActiveErrorEvent], config: LearnLoopConfig, item_a: float=1.0, item_b: float=0.0, forecast: Any=None, priming_offset: float=0.0, record_source: bool=False, direct: bool=False) -> SurpriseResult` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 66) — ``forecast`` (a :class:`~learnloop.attempts.surprise_forecast.SurpriseForecast`, from the label's retirement): adaptive difficulty's ``p̄`` made before the answer, which the predictive part is scored against (its innovation, variance and direction around ``b' = μ_prior − logit(p…
+- `predicted_error_type_distribution(prior_active_errors: list[ActiveErrorEvent], *, observed_at: datetime) -> dict[str, float]` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 204)
+- `score_bucket(rubric_score: int, max_points: int=4) -> str` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 223)
 
 ## Internal implementation anchors
 
-- `_open_logit(p: float, clip: float) -> float` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 58) — ``logit(p)``, exact inside (0, 1); a degenerate 0 or 1 is held at the configured clip.
+- `_open_logit(p: float, clip: float) -> float` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 59) — ``logit(p)``, exact inside (0, 1); a degenerate 0 or 1 is held at the configured clip.
 
 ## Who imports or calls it
 
@@ -77,6 +77,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `forecast_clipped_after_shift`; calls `forecast_clipped_after_shift`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`; calls `parse_utc`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `LearnLoopConfig`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `MasteryState`

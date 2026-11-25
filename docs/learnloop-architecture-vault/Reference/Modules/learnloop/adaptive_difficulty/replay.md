@@ -144,6 +144,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] — imports `module`; statically calls `days`, `snapshot`
 - [[Reference/Modules/learnloop/adaptive_difficulty/grade_forecast|learnloop.adaptive_difficulty.grade_forecast]] — imports `module`; statically calls `days`, `events_fingerprint`, `snapshot`
 - [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]] — imports `module`; statically calls `load_events`
+- [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `days`; statically calls `days`
 - [[Reference/Modules/learnloop/adaptive_difficulty/readiness|learnloop.adaptive_difficulty.readiness]] — imports `module`; statically calls `snapshot`
 - [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] — imports `module`; statically calls `load_events`, `run`
 - [[Reference/Modules/learnloop/adaptive_difficulty/repeat_receipts|learnloop.adaptive_difficulty.repeat_receipts]] — imports `module`; statically calls `days`, `lo_view_name`, `snapshot`, `surface_group`
@@ -194,7 +195,7 @@ Use this module in context through:
 
 - [[Rebuild and Shadow Compare]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/arms|learnloop.adaptive_difficulty.arms]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/grade_forecast|learnloop.adaptive_difficulty.grade_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]] and 8 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/arms|learnloop.adaptive_difficulty.arms]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/grade_forecast|learnloop.adaptive_difficulty.grade_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]] and 9 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

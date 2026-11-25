@@ -423,6 +423,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_selected_forecast.py](../../../../../../tests/test_selected_forecast.py) — direct import
   - `test_a_bound_answer_without_a_grade_receipt_reads_mastery_live_and_after_a_rebuild`
   - `test_a_grade_saves_no_item_revision_and_an_answer_on_its_contract_is_still_forecast`
+  - `test_a_regrade_does_not_make_an_old_inline_forecast_eligible`
   - `test_an_answer_to_its_own_presentation_after_an_edit_keeps_the_link_and_reads_mastery`
   - `test_another_sessions_presentation_is_left_for_its_answer`
   - `test_grade_uses_the_revision_frozen_on_open`

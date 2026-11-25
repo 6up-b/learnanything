@@ -120,6 +120,7 @@ Database triggers:
 
 ### Direct SQL readers
 
+- `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/confidence_events.py`
 - `src/learnloop/daily_plan/router_teach_back.py`
 - `src/learnloop/db/evidence_cutoff.py`

@@ -157,6 +157,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_router_card.py](../../../../../../tests/test_router_card.py) — direct import
 - [tests/test_selected_forecast.py](../../../../../../tests/test_selected_forecast.py) — direct import
   - `test_a_grade_saves_no_item_revision_and_an_answer_on_its_contract_is_still_forecast`
+  - `test_a_regrade_does_not_make_an_old_inline_forecast_eligible`
   - `test_grade_uses_the_revision_frozen_on_open`
 - [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
 - [tests/test_voi_forecasts.py](../../../../../../tests/test_voi_forecasts.py) — direct import

@@ -129,7 +129,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] | [[Reference/Modules/learnloop/adaptive_difficulty/relatedness#^module-purpose|purpose]] | `ACTIVE` | 6 | 9 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]] | [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/repeat_receipts|learnloop.adaptive_difficulty.repeat_receipts]] | [[Reference/Modules/learnloop/adaptive_difficulty/repeat_receipts#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
-| [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] | [[Reference/Modules/learnloop/adaptive_difficulty/replay#^module-purpose|purpose]] | `ACTIVE` | 13 | 25 |
+| [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] | [[Reference/Modules/learnloop/adaptive_difficulty/replay#^module-purpose|purpose]] | `ACTIVE` | 14 | 25 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/report|learnloop.adaptive_difficulty.report]] | [[Reference/Modules/learnloop/adaptive_difficulty/report#^module-purpose|purpose]] | `ACTIVE` | 2 | 14 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/scoring|learnloop.adaptive_difficulty.scoring]] | [[Reference/Modules/learnloop/adaptive_difficulty/scoring#^module-purpose|purpose]] | `ACTIVE` | 4 | 8 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/selection|learnloop.adaptive_difficulty.selection]] | [[Reference/Modules/learnloop/adaptive_difficulty/selection#^module-purpose|purpose]] | `ACTIVE` | 10 | 7 |
@@ -148,9 +148,9 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 38 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 39 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 33 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 32 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 32 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 28 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 18 static module edges
 - [[Reference/Modules/learnloop/field/_package|learnloop.field]] — 7 static module edges
@@ -191,8 +191,8 @@ This diagram compresses package-level static imports; edge labels are distinct m
 flowchart LR
     center["learnloop.adaptive_difficulty"]
     n_learnloop["learnloop"]
-    n_learnloop_ai["learnloop.ai"]
     n_learnloop_db_stores["learnloop.db.stores"]
+    n_learnloop_ai["learnloop.ai"]
     n_learnloop_db["learnloop.db"]
     n_learnloop_daily_plan["learnloop.daily_plan"]
     n_learnloop_scheduling["learnloop.scheduling"]
@@ -200,9 +200,9 @@ flowchart LR
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_cli["learnloop.cli"]
     n_learnloop_field["learnloop.field"]
-    center -->|38| n_learnloop
+    center -->|39| n_learnloop
+    center -->|33| n_learnloop_db_stores
     center -->|32| n_learnloop_ai
-    center -->|32| n_learnloop_db_stores
     center -->|28| n_learnloop_db
     n_learnloop_daily_plan -->|21| center
     center -->|18| n_learnloop_scheduling

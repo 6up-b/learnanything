@@ -131,7 +131,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/stores/ad_receipts|learnloop.db.stores.ad_receipts]] | [[Reference/Modules/learnloop/db/stores/ad_receipts#^module-purpose|purpose]] | `ACTIVE` | 13 | 8 |
 | [[Reference/Modules/learnloop/db/stores/ad_serving|learnloop.db.stores.ad_serving]] | [[Reference/Modules/learnloop/db/stores/ad_serving#^module-purpose|purpose]] | `ACTIVE` | 13 | 14 |
 | [[Reference/Modules/learnloop/db/stores/answered_contracts|learnloop.db.stores.answered_contracts]] | [[Reference/Modules/learnloop/db/stores/answered_contracts#^module-purpose|purpose]] | `ACTIVE` | 5 | 0 |
-| [[Reference/Modules/learnloop/db/stores/answered_revision|learnloop.db.stores.answered_revision]] | [[Reference/Modules/learnloop/db/stores/answered_revision#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
+| [[Reference/Modules/learnloop/db/stores/answered_revision|learnloop.db.stores.answered_revision]] | [[Reference/Modules/learnloop/db/stores/answered_revision#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
 | [[Reference/Modules/learnloop/db/stores/approach_maps|learnloop.db.stores.approach_maps]] | [[Reference/Modules/learnloop/db/stores/approach_maps#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
 | [[Reference/Modules/learnloop/db/stores/attempts|learnloop.db.stores.attempts]] | [[Reference/Modules/learnloop/db/stores/attempts#^module-purpose|purpose]] | `ACTIVE` | 5 | 4 |
 | [[Reference/Modules/learnloop/db/stores/causal|learnloop.db.stores.causal]] | [[Reference/Modules/learnloop/db/stores/causal#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
@@ -223,7 +223,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 ### Packages that import this package
 
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 56 static module edges
-- [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 32 static module edges
+- [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 33 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 32 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 27 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 26 static module edges
@@ -301,7 +301,7 @@ flowchart LR
     n_learnloop_db -->|27| center
     center -->|38| n_learnloop_db
     n_learnloop_source_retrieval -->|56| center
-    n_learnloop_adaptive_difficulty -->|32| center
+    n_learnloop_adaptive_difficulty -->|33| center
     n_learnloop_sidecar_handlers -->|32| center
     n_learnloop_daily_plan -->|26| center
     n_learnloop_figures -->|23| center

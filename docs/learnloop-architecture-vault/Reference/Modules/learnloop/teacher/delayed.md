@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/delayed.py](../../../../../../src/learnloop/teacher/delayed.py) |
-| Source lines | 258 |
+| Source lines | 280 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -62,7 +62,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `pick(vault: Any, repository: Any, items: Sequence[Any], *, seed_key: str='') -> Any | None` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 131) — The candidate pitched nearest the band's middle (the house prior); module docstring.
 - `retention_seed_key(lesson_id: str, learning_object_id: str, node_id: str | None=None) -> str` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 137) — The retention check's draw: its commit and the lesson forecast about it share it (§12.2).
 - `node_seed(vault: Any, node_id: Any) -> str | None` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 146) — The node's identity in its retention seed from the corrections' tag (mvp-0.73); None below it.
-- `commit_checks(vault: Any, repository: Any, *, lesson_id: str, landed: Sequence[Mapping[str, Any]], goal_learning_object_ids: Sequence[str], lesson_items_by_lo: Mapping[str, Sequence[str]], shown_items: Iterable[str], taught_learning_objects: Sequence[str]=(), clock: Clock | None=None) -> tuple[list[dict[str, Any]], list[str]]` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 154) — Commit one retention check per landed node with an LO and one transfer check; returns ``(delayed_checks, warnings)`` for the receipt.
+- `retention_picks(vault: Any, repository: Any, *, lesson_id: str, nodes: Sequence[Mapping[str, Any]], exclude: Iterable[str], withheld: Any, attempted: set[str], revealed: set[str], excluded_lineage: set[str]) -> list[tuple[Mapping[str, Any], str, Any | None, dict[str, Any]]]` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 154) — Each landed node's retention pick, in landing order: ``(node, lo, item or None, pick receipt)``.
+- `commit_checks(vault: Any, repository: Any, *, lesson_id: str, landed: Sequence[Mapping[str, Any]], goal_learning_object_ids: Sequence[str], lesson_items_by_lo: Mapping[str, Sequence[str]], shown_items: Iterable[str], taught_learning_objects: Sequence[str]=(), clock: Clock | None=None) -> tuple[list[dict[str, Any]], list[str]]` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 178) — Commit one retention check per landed node with an LO and one transfer check; returns ``(delayed_checks, warnings)`` for the receipt.
 
 ### Module constants
 
@@ -85,6 +86,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `node_seed`
 - `pick_with_receipt`
 - `presentation`
+- `retention_picks`
 - `retention_seed_key`
 - `shown_vault_items`
 - `taught_facets`
@@ -98,7 +100,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `module`; statically calls `_attempted`, `_revealed`, `candidates`, `due_days`, `lineage`, `node_seed`, `pick`, `retention_seed_key`
+- [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `module`; statically calls `_attempted`, `_revealed`, `candidates`, `due_days`, `lineage`, `node_seed`, `pick`, `retention_picks`, `retention_seed_key`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `module`; statically calls `commit_checks`, `shown_vault_items`
 
 ## Dependencies
@@ -137,6 +139,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_near_tie_is_no_tie`
   - `test_an_exact_tie_is_a_logged_uniform_draw_with_probability_one_over_n`
   - `test_commit_checks_carry_the_delayed_check_receipt_fields`
+  - `test_each_landed_nodes_retention_forecast_targets_the_item_it_is_committed`
   - `test_from_the_label_retirement_an_los_items_tie_and_the_pick_draws`
   - `test_the_lessons_forecast_reference_is_the_item_the_check_would_commit`
   - `test_the_pick_is_the_item_nearest_the_band_not_the_smallest_id`

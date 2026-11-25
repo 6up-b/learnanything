@@ -1009,6 +1009,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_enrollment_is_the_learners_commitment_and_a_system_dated_check_is_none`
 - [tests/test_data_capture_a6_delayed_pick.py](../../../../../tests/test_data_capture_a6_delayed_pick.py) — direct import
   - `test_commit_checks_carry_the_delayed_check_receipt_fields`
+  - `test_each_landed_nodes_retention_forecast_targets_the_item_it_is_committed`
   - `test_the_lessons_forecast_reference_is_the_item_the_check_would_commit`
   - `test_two_landed_nodes_on_one_lo_draw_their_checks_from_their_own_seeds`
 - [tests/test_data_capture_codex_rereview.py](../../../../../tests/test_data_capture_codex_rereview.py) — direct import
@@ -2043,6 +2044,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_selected_forecast.py](../../../../../tests/test_selected_forecast.py) — direct import
   - `test_a_bound_answer_without_a_grade_receipt_reads_mastery_live_and_after_a_rebuild`
   - `test_a_grade_saves_no_item_revision_and_an_answer_on_its_contract_is_still_forecast`
+  - `test_a_regrade_does_not_make_an_old_inline_forecast_eligible`
   - `test_an_answer_to_its_own_presentation_after_an_edit_keeps_the_link_and_reads_mastery`
   - `test_another_sessions_presentation_is_left_for_its_answer`
   - `test_grade_uses_the_revision_frozen_on_open`
@@ -2218,8 +2220,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_withdrawals_interleave_reverse_chronologically`
 - [tests/test_surprise_reads_ad_forecast.py](../../../../../tests/test_surprise_reads_ad_forecast.py) — direct import
   - `test_a_grade_receipt_that_fails_to_write_leaves_the_mastery_fallback_and_its_source`
+  - `test_a_later_regrade_never_enters_an_earlier_forecast`
   - `test_a_writer_committing_between_the_read_and_the_write_leaves_the_recorded_forecast_standing`
   - `test_an_answer_dated_before_recorded_evidence_gets_no_grade_time_forecast`
+  - `test_the_diagnosis_receipt_switch_does_not_discard_the_grade_time_forecast`
   - `test_the_grade_does_not_wait_on_a_second_clock`
 - [tests/test_synthesis_criterion_dependencies.py](../../../../../tests/test_synthesis_criterion_dependencies.py) — direct import
 - [tests/test_synthesis_runs_repo.py](../../../../../tests/test_synthesis_runs_repo.py) — direct import

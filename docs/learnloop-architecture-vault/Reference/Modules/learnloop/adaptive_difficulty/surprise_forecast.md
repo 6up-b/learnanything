@@ -46,25 +46,25 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/surprise_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py) |
-| Source lines | 272 |
+| Source lines | 292 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class SurpriseForecast` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 45) — AD's ``p̄`` (an unassisted success) for the answer, before it, and where it was read.
-- `with_grade_forecast(vault: Any, repository: Any, attempt: Any, *, clock: Any=None) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 59) — A live answer from the label's retirement on, with adaptive difficulty's forecast of it (``ApplyAttemptInput.grade_forecast``), computed read-only before the grade's write transaction, so it sees exactly what was committed before the answer, which is not yet written.
-- `record_grade_forecast(vault: Any, repository: Any, receipt: Any) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 104) — Append the live forecast in the grade's transaction, before the grade is computed, so the grade scores against the stored row exactly as a replay will (a savepoint: a failed receipt rolls back alone, and the grade then reads none and records mastery's prediction as its source).
-- `validate_live_binding(vault: Any, repository: Any, attempt: Any, *, at: str | None=None) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 196) — Drop a refused link and its prepared forecast together so replay also finds the marked fallback.
-- `read_surprise_forecast(vault: Any, repository: Any, draft: Any, *, attempt_id: str, answered_at: str | None=None) -> SurpriseForecast | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 218) — The forecast this answer's surprise is scored against, or None (mastery's own prediction).
+- `class SurpriseForecast` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 48) — AD's ``p̄`` (an unassisted success) for the answer, before it, and where it was read.
+- `with_grade_forecast(vault: Any, repository: Any, attempt: Any, *, clock: Any=None) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 62) — A live answer from the label's retirement on, with adaptive difficulty's forecast of it (``ApplyAttemptInput.grade_forecast``), computed read-only before the grade's write transaction, so it sees exactly what was committed before the answer, which is not yet written.
+- `record_grade_forecast(vault: Any, repository: Any, receipt: Any) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 124) — Append the live forecast in the grade's transaction, before the grade is computed, so the grade scores against the stored row exactly as a replay will (a savepoint: a failed receipt rolls back alone, and the grade then reads none and records mastery's prediction as its source).
+- `validate_live_binding(vault: Any, repository: Any, attempt: Any, *, at: str | None=None) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 217) — Drop a refused link and its prepared forecast together so replay also finds the marked fallback.
+- `read_surprise_forecast(vault: Any, repository: Any, draft: Any, *, attempt_id: str, answered_at: str | None=None) -> SurpriseForecast | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 239) — The forecast this answer's surprise is scored against, or None (mastery's own prediction).
 
 ### Module constants
 
-- `SERVE_RECEIPT` ([src/learnloop/adaptive_difficulty/surprise_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 37)
-- `GRADE_RECEIPT` ([src/learnloop/adaptive_difficulty/surprise_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 38)
-- `MASTERY` ([src/learnloop/adaptive_difficulty/surprise_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 39)
-- `SERVE_FORECASTERS` ([src/learnloop/adaptive_difficulty/surprise_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 41)
+- `SERVE_RECEIPT` ([src/learnloop/adaptive_difficulty/surprise_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 40)
+- `GRADE_RECEIPT` ([src/learnloop/adaptive_difficulty/surprise_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 41)
+- `MASTERY` ([src/learnloop/adaptive_difficulty/surprise_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 42)
+- `SERVE_FORECASTERS` ([src/learnloop/adaptive_difficulty/surprise_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 44)
 
 ### Explicit exports
 
@@ -82,15 +82,16 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_usable(row: dict[str, Any] | None, practice_item_id: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 54)
-- `_contract_revision(repository: Any, version_id: str) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 88)
-- `_revised_after(repository: Any, at: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 93) — Whether a grade was recorded or revised after the answer's cutoff ``at``: AD's evidence then holds a grade the learner's answer could not have been forecast with (a retrospective import), so the answer gets no forecast.
-- `_serve_forecasts(connection: Any, presentation: dict[str, Any], selected: bool) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 117)
-- `_slot_drawn(connection: Any, block: Any, position: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 150) — Whether AD recorded any serve draw for the slot (one that does not verify still leaves mastery).
-- `_receipt_revision(row: dict[str, Any] | None) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 159)
-- `_serve_input_revision(connection: Any, presentation_id: str) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 171)
-- `_matches_administration(connection: Any, presentation: dict[str, Any], draft: Any, at: str | None) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 177) — Whether the answer may take this presentation: served in no session, in the answer's own, to an answer that names no session, or in a session that had ended by the answer's time ``at`` (starting a session ends every other, so no answer of its own can still come); the probe admin…
-- `_session_ended(connection: Any, session_id: str, at: str | None) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 191)
+- `_usable(row: dict[str, Any] | None, practice_item_id: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 57)
+- `_contract_revision(repository: Any, version_id: str) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 91)
+- `_inline_contract_revision(vault: Any, repository: Any, connection: Any, draft: Any, attempt_id: str) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 96) — The full revision the inline answer's presentation froze.
+- `_revised_after(repository: Any, at: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 110) — Whether a grade was recorded or revised after the answer's cutoff ``at``: AD's evidence then holds a grade the learner's answer could not have been forecast with (a retrospective import), so the answer gets no forecast.
+- `_serve_forecasts(connection: Any, presentation: dict[str, Any], selected: bool) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 138)
+- `_slot_drawn(connection: Any, block: Any, position: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 171) — Whether AD recorded any serve draw for the slot (one that does not verify still leaves mastery).
+- `_receipt_revision(row: dict[str, Any] | None) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 180)
+- `_serve_input_revision(connection: Any, presentation_id: str) -> str | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 192)
+- `_matches_administration(connection: Any, presentation: dict[str, Any], draft: Any, at: str | None) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 198) — Whether the answer may take this presentation: served in no session, in the answer's own, to an answer that names no session, or in a session that had ended by the answer's time ``at`` (starting a session ends every other, so no answer of its own can still come); the probe admin…
+- `_session_ended(connection: Any, session_id: str, at: str | None) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/surprise_forecast.py), line 212)
 
 ## Who imports or calls it
 
@@ -104,10 +105,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/grade_forecast|learnloop.adaptive_difficulty.grade_forecast]] — imports `receipt_id`, `receipt_key`, `safe_grade_receipt`; calls `receipt_id`, `receipt_key`, `safe_grade_receipt`
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `SELECTED_FORECAST_VERSIONS`, `label_retired`; calls `label_retired`
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `SELECTED_FORECAST_VERSIONS`, `cutoff_reads_the_view`, `inline_guard_reads_first_grade`, `label_retired`; calls `cutoff_reads_the_view`, `inline_guard_reads_first_grade`, `label_retired`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/stores/ad_serving|learnloop.db.stores.ad_serving]] — imports `selection_by_key`; calls `selection_by_key`
+- [[Reference/Modules/learnloop/db/stores/answered_revision|learnloop.db.stores.answered_revision]] — imports `first_grade_contract`; calls `first_grade_contract`
 - [[Reference/Modules/learnloop/db/stores/forecast_receipts|learnloop.db.stores.forecast_receipts]] — imports `module`; calls `attempt_forecast`, `presentation_forecasts`
 - [[Reference/Modules/learnloop/db/stores/plan_presentations|learnloop.db.stores.plan_presentations]] — imports `bindable_presentation`, `presentation_by_id`; calls `bindable_presentation`, `presentation_by_id`
 - [[Reference/Modules/learnloop/scheduling/forecast_receipts|learnloop.scheduling.forecast_receipts]] — imports `ITEM_UNASSISTED_SUCCESS`, `ITEM_UNASSISTED_SUCCESS_AT_GRADE`, `record_receipts`, `valid_for_serve`; calls `record_receipts`, `valid_for_serve`

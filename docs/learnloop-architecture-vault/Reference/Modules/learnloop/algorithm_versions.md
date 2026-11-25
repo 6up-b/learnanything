@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py) |
-| Source lines | 1401 |
+| Source lines | 1432 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -68,7 +68,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `forecast_scoring_fixed(algorithm_version: str | None) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1359) — The label retirement's corrections (their tag): below it mvp-0.72's surprise scoring and delayed-check seeds exactly.
 - `probe_router_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1366) — The router decides the automatic lane's probe and an unwritten probe is asked only by the probe coin (the probe router's tag), gated by the vault's tag alone (no kill switch): below it the predecessor's follow-up decision exactly.
 - `unapplied_answers_resolve_nothing(algorithm_version: str | None) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1383) — An answer whose recorded mastery application says it was not applied is no lesson outcome (mvp-0.76); below it every outcome reader is mvp-0.75's.
-- `mastery_facts_recorded(algorithm_version: str | None) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1390) — Mastery records each application's facts, observed at whole seconds, and the lesson-weight fit and every reader of a lesson outcome read them in one order (the facts' tag); below it mvp-0.73's exactly.
+- `forecast_clipped_after_shift(algorithm_version: str | None) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1390) — Without mastery's IRT link, the forecast surprise is scored against is clipped by the configured clip once, after a primed answer's shift, as the IRT link already does (mvp-0.76, FR3-16); below it mvp-0.73's unclipped centre exactly.
+- `inline_guard_reads_first_grade(algorithm_version: str | None) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1398) — An inline answer's forecast eligibility reads the contract its original grade cites, never a regrade epoch's (mvp-0.76, FR3-11); below it the current epoch's contract, mvp-0.74's exactly.
+- `retention_forecast_shares_allocation(algorithm_version: str | None) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1405) — A landed node's retention forecast names the item the commitment's allocation gives it after the nodes landed before it, with that pick's propensity (mvp-0.76, FR3-15); below it each node's pick alone, mvp-0.73's exactly.
+- `cutoff_reads_the_view(algorithm_version: str | None) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1413) — The grade-time forecast's later-evidence guard reads, in the forecast's own read and through AD's view, only the visible answers the forecast read, by the time their grade became known (mvp-0.76, FR3-5); below it every raw grade's recorded time on a separate read, mvp-0.71's exa…
+- `mastery_facts_recorded(algorithm_version: str | None) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1421) — Mastery records each application's facts, observed at whole seconds, and the lesson-weight fit and every reader of a lesson outcome read them in one order (the facts' tag); below it mvp-0.73's exactly.
 
 ### Module constants
 
@@ -167,7 +171,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `LESSON_WEIGHT_CURVE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1374)
 - `LESSON_WEIGHT_FACT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1377)
 - `OUTCOME_FIXES_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1380)
-- `LATEST_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1401)
+- `LATEST_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1432)
 
 ## Internal implementation anchors
 
@@ -178,13 +182,15 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/adaptive_difficulty/grade_forecast|learnloop.adaptive_difficulty.grade_forecast]] — imports `cutoff_reads_the_view`; statically calls `cutoff_reads_the_view`
 - [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] — imports `label_retired`; statically calls `label_retired`
 - [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]] — imports `ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION`
-- [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]] — imports `SELECTED_FORECAST_VERSIONS`, `label_retired`; statically calls `label_retired`
+- [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]] — imports `SELECTED_FORECAST_VERSIONS`, `cutoff_reads_the_view`, `inline_guard_reads_first_grade`, `label_retired`; statically calls `cutoff_reads_the_view`, `inline_guard_reads_first_grade`, `label_retired`
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `LESSON_WEIGHT_CURVE_VERSIONS`, `forecast_scoring_fixed`, `label_retired`, `mastery_facts_recorded`; statically calls `forecast_scoring_fixed`, `label_retired`, `mastery_facts_recorded`
 - [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] — imports `GRADE_CHANNEL_FIX_VERSIONS`
 - [[Reference/Modules/learnloop/attempts/lifecycle_inputs|learnloop.attempts.lifecycle_inputs]] — imports `LIFECYCLE_INPUTS_VERSIONS`, `lifecycle_inputs_on`; statically calls `lifecycle_inputs_on`
 - [[Reference/Modules/learnloop/attempts/replay_reading|learnloop.attempts.replay_reading]] — imports `evidence_reading_fixes_on`; statically calls `evidence_reading_fixes_on`
+- [[Reference/Modules/learnloop/attempts/surprise|learnloop.attempts.surprise]] — imports `forecast_clipped_after_shift`; statically calls `forecast_clipped_after_shift`
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `LATEST_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/cli/grading|learnloop.cli.grading]] — imports `GRADE_CHANNEL_FIX_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/config/template|learnloop.config.template]] — imports `LATEST_ALGORITHM_VERSION`
@@ -227,7 +233,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/substrate/recurrence_groups|learnloop.substrate.recurrence_groups]] — imports `DECIDER_TIER1_VERSIONS`
 - [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] — imports `OLDEST_SUPPORTED`
 - [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] — imports `mastery_seed_on`; statically calls `mastery_seed_on`
-- [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `LESSON_WEIGHT_CURVE_VERSIONS`
+- [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `LESSON_WEIGHT_CURVE_VERSIONS`, `retention_forecast_shares_allocation`; statically calls `retention_forecast_shares_allocation`
 - [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]] — imports `forecast_scoring_fixed`; statically calls `forecast_scoring_fixed`
 - [[Reference/Modules/learnloop/version_floor|learnloop.version_floor]] — imports `LATEST_ALGORITHM_VERSION`, `OLDEST_SUPPORTED`, `RECURRENCE_GROUP_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `probe_router_on`; statically calls `probe_router_on`
@@ -257,7 +263,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]], [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]], [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] and 49 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/grade_forecast|learnloop.adaptive_difficulty.grade_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]], [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]], [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 51 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -396,6 +402,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_data_capture_a2_measurement.py](../../../../../tests/test_data_capture_a2_measurement.py) — direct import
 - [tests/test_data_capture_a5_not_ready_floor.py](../../../../../tests/test_data_capture_a5_not_ready_floor.py) — direct import
 - [tests/test_data_capture_a6_delayed_pick.py](../../../../../tests/test_data_capture_a6_delayed_pick.py) — direct import
+  - `test_each_landed_nodes_retention_forecast_targets_the_item_it_is_committed`
   - `test_from_the_label_retirement_an_los_items_tie_and_the_pick_draws`
   - `test_two_landed_nodes_on_one_lo_draw_their_checks_from_their_own_seeds`
 - [tests/test_data_capture_codex_review.py](../../../../../tests/test_data_capture_codex_review.py) — direct import

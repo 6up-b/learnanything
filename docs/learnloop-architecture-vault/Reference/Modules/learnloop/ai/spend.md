@@ -545,6 +545,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_project_calls_reserve_the_transport_retry_at_its_doubled_allowance`
   - `test_review_spend_reserves_the_transport_retry_at_its_doubled_allowance`
 - [tests/test_teacher_te5_compaction.py](../../../../../../tests/test_teacher_te5_compaction.py) — direct import
+  - `test_a_correction_receipt_records_its_own_prompt_estimate`
   - `test_live_boundary_and_predecessor_bytes`
 - [tests/test_tier1_decider.py](../../../../../../tests/test_tier1_decider.py) — direct import
   - `test_a_review_resume_refuses_a_changed_decider_profile`

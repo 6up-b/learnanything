@@ -400,6 +400,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_vault_whose_facets_used_to_be_locked_still_bootstraps`
 - [tests/test_sqlite_wal_lifecycle.py](../../../../../../tests/test_sqlite_wal_lifecycle.py) — direct import
   - `test_wal_stays_bounded_across_twenty_queue_builds_on_a_fixture_copy`
+- [tests/test_surprise_reads_ad_forecast.py](../../../../../../tests/test_surprise_reads_ad_forecast.py) — direct import
+  - `test_a_later_regrade_never_enters_an_earlier_forecast`
+  - `test_the_diagnosis_receipt_switch_does_not_discard_the_grade_time_forecast`
 - [tests/test_synthesis_criterion_dependencies.py](../../../../../../tests/test_synthesis_criterion_dependencies.py) — direct import
   - `test_fix_content_skips_unparseable_items_and_reports_them`
 - [tests/test_t6_followup_composition.py](../../../../../../tests/test_t6_followup_composition.py) — direct import

@@ -945,6 +945,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_whitespace_normalized_match_still_requires_uniqueness`
 - [tests/test_answer_calibration_duel.py](../../../../../../tests/test_answer_calibration_duel.py) — direct import
 - [tests/test_answer_door_sessions.py](../../../../../../tests/test_answer_door_sessions.py) — direct import
+  - `test_a_restored_drafts_checkpoint_wins_over_an_older_presentation_it_sends`
   - `test_desktop_submit_after_a_new_session_binds_the_ended_sessions_presentation`
 - [tests/test_answer_signal_arms.py](../../../../../../tests/test_answer_signal_arms.py) — direct import
   - `test_the_loader_reads_the_tap_and_the_graders_tone_reading`
@@ -2348,6 +2349,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_selected_forecast.py](../../../../../../tests/test_selected_forecast.py) — direct import
   - `test_a_bound_answer_without_a_grade_receipt_reads_mastery_live_and_after_a_rebuild`
   - `test_a_grade_saves_no_item_revision_and_an_answer_on_its_contract_is_still_forecast`
+  - `test_a_regrade_does_not_make_an_old_inline_forecast_eligible`
   - `test_an_answer_to_its_own_presentation_after_an_edit_keeps_the_link_and_reads_mastery`
   - `test_another_sessions_presentation_is_left_for_its_answer`
   - `test_grade_uses_the_revision_frozen_on_open`
@@ -2547,12 +2549,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_surprise_forecast_scoring.py](../../../../../../tests/test_surprise_forecast_scoring.py) — direct import
 - [tests/test_surprise_reads_ad_forecast.py](../../../../../../tests/test_surprise_reads_ad_forecast.py) — direct import
   - `test_a_grade_receipt_that_fails_to_write_leaves_the_mastery_fallback_and_its_source`
+  - `test_a_later_regrade_never_enters_an_earlier_forecast`
   - `test_a_rebuild_reproduces_every_surprise_row_and_writes_no_receipt`
   - `test_a_regrade_rereads_the_answers_first_forecast`
   - `test_a_writer_committing_between_the_read_and_the_write_leaves_the_recorded_forecast_standing`
   - `test_ads_trace_records_the_kl_of_its_posterior_from_the_tag_on`
   - `test_an_answer_dated_before_recorded_evidence_gets_no_grade_time_forecast`
   - `test_history_before_the_tag_falls_back_to_mastery_marked`
+  - `test_the_diagnosis_receipt_switch_does_not_discard_the_grade_time_forecast`
   - `test_the_label_does_not_move_mastery`
 - [tests/test_synthesis_answer_reuse.py](../../../../../../tests/test_synthesis_answer_reuse.py) — direct import
   - `test_a_checkpoint_discard_keeps_an_answer_saved_after_the_one_judged`
