@@ -4,7 +4,10 @@ from math import exp
 import numpy as np
 import pytest
 
-import learnloop.field.memory  # noqa: F401 - the registry includes the PF-a memory arms
+# Both imports register predictor arms (the PF-a memory arms, the answer-signal arms): the cases below are built from
+# the registry at collection, so they must not depend on what else this process happened to import first.
+import learnloop.field.answer_signals  # noqa: F401
+import learnloop.field.memory  # noqa: F401
 from learnloop.field.predictors import LoGeneral, MasteryEKF, create_predictor, registered_predictors
 from learnloop.field.types import ArmConstants, AttemptRow, FacetRow, ItemFeatures, SignalRow
 

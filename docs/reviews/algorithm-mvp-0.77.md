@@ -128,3 +128,25 @@ SQL
 
 The four counts describe history the tag does not rewrite; they bound how often the
 predecessor's rules acted.
+
+## The owner-copy run (Nov 26 2026, orchestrator; counts and digests only)
+
+Backup-API copies of the three floor-set vaults walked to `mvp-0.76` with this tip, then upgraded in place to
+`mvp-0.77`. The copies were deleted afterwards. Digests leave out `algorithm_version` and `updated_at`.
+
+| | vault 1 | vault 2 | vault 3 |
+|---|---|---|---|
+| rounded draws; head-mismatch records; family-penalized presentations; episodes off their valued lock (before = after) | 0; 0; 0; 0 | 0; 0; 0; 0 | 0; 0; 0; 0 |
+| router decisions; probe episodes; probe presentations | 0; 31; 0 | 0; 9; 0 | 3; 18; 0 |
+| twelve table digests, 0.76 against 0.77 | same | same | same |
+| after rebuild 1 and 2: eleven digests same as after the upgrade; the payload digest | same; moves once at rebuild 1, same at rebuild 2 | same; as vault 1 | same; as vault 1 |
+| `remint:missing_source_locators`; `answers:grade_record_missing` from the doctor | 0; 0 | 0; 0 | 0; 0 |
+| integrity; foreign-key violations; schema head | ok; 0; 276 | ok; 0; 276 | ok; 0; 276 |
+
+- The upgrade is an idempotent projection and rewrites nothing; the first rebuild afterwards rewrites the attempt
+  payloads (their digest moves once and is then stable). I read that as the payloads carrying the tag in their JSON; the
+  run did not open a payload to confirm it.
+- **Not exercised here:** no copy holds a probe presentation or a learner-lane router decision, so none of the tag's four
+  rules is reached by this history. They are covered by the tests only.
+- The doctor exits 1 on each copy on the content errors that predate these tags.
+
